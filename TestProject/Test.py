@@ -107,9 +107,9 @@ class DataCollectionAnalysis():
             teamAllianceNumber = allianceInfo["teamAllianceNum"]
             match = scoreBreakdown["Match #" + str(i+1)]
 
-            bottomGoals += match[str(alliance) + ".autoCellsBottom"]
-            upperGoals += match[str(alliance) + ".autoCellsOuter"]
-            innerGoals += match[str(alliance) + ".autoCellsInner"]
+            bottomGoals += match[str(alliance) + ".autoCellsBottom"][0]
+            upperGoals += match[str(alliance) + ".autoCellsOuter"][0]
+            innerGoals += match[str(alliance) + ".autoCellsInner"][0]
             initiationLine = match[str(alliance) + ".initLineRobot" + str(teamAllianceNumber)][0]
             if initiationLine == "Exited":
                 initiationLineCt += 1
@@ -117,29 +117,53 @@ class DataCollectionAnalysis():
         bottomGoals = (float(bottomGoals)/float(numOfMatches))*2.
         upperGoals = (float(upperGoals) / float(numOfMatches))*4.
         innerGoals = (float(innerGoals) / float(numOfMatches))*6.
-        initiationLinePercent = (float(initiationLineCt)/float(numOfMatches))*5.
-        return bottomGoals+upperGoals+innerGoals+initiationLinePercent
+
+        # Multiply the point value of leaving the initiation line by how often they do it.
+        initiationLineScore = (float(initiationLineCt)/float(numOfMatches))*5.
+        return bottomGoals+upperGoals+innerGoals+initiationLineScore
 
 
     def calculateTeleopScore(self, teamObject, teamKey):
         # TO-DO: Add control panel and stage stuff and subtract foul points
         scoreBreakdown = teamObject["score_breakdown"]
 
-        bottomGoals = 0
-        upperGoals = 0
-        innerGoals = 0
+        bottomGoals = 0.
+        upperGoals = 0.
+        innerGoals = 0.
+
+        stage2Ct = 0
+        stage3Ct = 0
         numOfMatches = len(scoreBreakdown.index)
         for i in range(0, numOfMatches):
             alliance = self.getTeamAllianceInfo(match=teamObject.xs("Match #" + str(i+1), axis=0), teamKey=teamKey)["allianceColor"]
+            match = scoreBreakdown["Match #" + str(i+1)]
 
-            bottomGoals += scoreBreakdown["Match #" + str(i + 1)][str(alliance) + ".teleopCellsBottom"][0]
-            upperGoals += scoreBreakdown["Match #" + str(i + 1)][str(alliance) + ".teleopCellsOuter"][0]
-            innerGoals += scoreBreakdown["Match #" + str(i + 1)][str(alliance) + ".teleopCellsInner"][0]
+            # Gets the stats I want from the teleop portion of the match
+            # For some reason, it returns as a series, so I'm getting the first (and only) data point of that series.
+            bottomGoals += match[str(alliance) + ".teleopCellsBottom"][0]
+            upperGoals += match[str(alliance) + ".teleopCellsOuter"][0]
+            innerGoals += match[str(alliance) + ".teleopCellsInner"][0]
 
-        bottomGoals /= float(bottomGoals)/float(numOfMatches)
-        upperGoals /= (float(upperGoals)/float(numOfMatches))*2.
-        innerGoals /= (float(innerGoals)/float(numOfMatches))*3.
-        return bottomGoals+upperGoals+innerGoals
+            # returns true/false values. We don't need stage 1 because that will show in the points from balls.
+            stage2 = match[str(alliance) + ".stage2Activated"][0]
+            stage3 = match[str(alliance) + ".stage3Activated"][0]
+
+            if stage2:
+                stage2Ct += 1
+            if stage3:
+                stage3Ct += 1
+
+        # Find average amount of balls scored in each goal, and multiply by their point value.
+        bottomGoals = bottomGoals/numOfMatches
+        upperGoals = (upperGoals/numOfMatches)*2.
+        innerGoals = (innerGoals/numOfMatches)*3.
+
+        # Multiply the point value of each stage by how often they accomplish it.
+        stage2Score = (stage2Ct / numOfMatches)*10.
+        stage3Score = (stage3Ct / numOfMatches)*20.
+
+        teleopScore = (bottomGoals+upperGoals+innerGoals+stage2Score+stage3Score)
+        return teleopScore
 
     def calculateEndgameScore(self, teamObject, teamKey):
         scoreBreakdown = teamObject["score_breakdown"]
@@ -172,5 +196,9 @@ class DataCollectionAnalysis():
 
 
 test = DataCollectionAnalysis()
-hotTeamKey = test.getTeamKey(teamNumber=67)
-print(test.calculateAutonScore(teamObject=test.getTeamStats(numOfMatches=100000, teamKey=hotTeamKey), teamKey=hotTeamKey))
+teamKey = test.getTeamKey(teamNumber=1076)
+teamStats = test.getTeamStats(numOfMatches=100000, teamKey=teamKey)
+print(str(test.calculateAutonScore(teamObject=teamStats, teamKey=teamKey)) + ": Auton Score")
+print(str(test.calculateTeleopScore(teamObject=teamStats, teamKey=teamKey)) + ": TeleopScore")
+print(str(test.calculateEndgameScore(teamObject=teamStats, teamKey=teamKey)) + ": Endgame Score")
+
