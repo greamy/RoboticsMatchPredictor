@@ -61,38 +61,37 @@ class DataCollectionAnalysis():
             return -1
         return matchExampleKey
 
-    def getTeamStats(self, numOfMatches, teamKey):
+    def getTeamStats(self, numOfMatches, teamKey, eventKey):
         # This function returns as many sample matches you need from a team, all in one data frame!
         # It also puts the score breakdown Stats into its own DataFrame, stored within the outer one.
         matchData = pd.DataFrame()
-        for i in range(0, numOfMatches):
-            try:
-                matchJson = requests.get(url=(self.link + "match/" + str(self.getMatchKey(teamKey, i))),
-                                         headers=self.headers)
-                if matchJson.status_code == 200:
-                    matchData["Match #" + str(i + 1)] = pd.read_json(path_or_buf=matchJson.text, typ="series",
-                                                                     convert_dates=False)
-                else:
-                    print("Error occured. Using current Data.")
-                    numOfMatches = i
-                    break
-            except KeyError:
-                print("Error occured. Using existing data")
-                numOfMatches = i
-                break
 
-        # Creating Inner Data Frames for the data with multiple stats inside.
-        matchData = matchData.transpose()
-        print("MatchData from team:" + str(teamKey))
+        matchJson = requests.get(url=(self.link + "/team/" + str(teamKey) + "/event/" + str(eventKey)), headers=self.headers)
+        matchData = pd.read_json(path_or_buf=matchJson.text, typ="frame", convert_dates=False)
         print(matchData)
-        if 
-        for q in range(1, numOfMatches+1):
-            tempAlliances = pd.json_normalize(data=matchData.at[("Match #" + str(q)), "alliances"])
-            tempScoreBreakdown = pd.json_normalize(data=matchData.at[("Match #" + str(q)), "score_breakdown"])
-            matchData.at[("Match #" + str(q)), "alliances"] = tempAlliances
-            matchData.at[("Match #" + str(q)), "score_breakdown"] = tempScoreBreakdown
-
-        return matchData
+        # for i in range(0, numOfMatches):
+        #     try:
+        #         matchJson = requests.get(url=(self.link + "match/" + str(self.getMatchKey(teamKey, i))),
+        #                                  headers=self.headers)
+        #         if matchJson.status_code == 200:
+        #             matchData["Match #" + str(i + 1)] = pd.read_json(path_or_buf=matchJson.text, typ="series",
+        #                                                              convert_dates=False)
+        #         else:
+        #             return -1
+        #     except KeyError:
+        #         print("Error occured. Using existing data")
+        #         numOfMatches = i
+        #         break
+        #
+        # # Creating Inner Data Frames for the data with multiple stats inside.
+        # matchData = matchData.transpose()
+        # for q in range(1, numOfMatches+1):
+        #     tempAlliances = pd.json_normalize(data=matchData.at[("Match #" + str(q)), "alliances"])
+        #     tempScoreBreakdown = pd.json_normalize(data=matchData.at[("Match #" + str(q)), "score_breakdown"])
+        #     matchData.at[("Match #" + str(q)), "alliances"] = tempAlliances
+        #     matchData.at[("Match #" + str(q)), "score_breakdown"] = tempScoreBreakdown
+        #
+        # return matchData
 
     @staticmethod
     def getTeamAllianceInfo(match, teamKey):
@@ -236,23 +235,28 @@ class DataCollectionAnalysis():
 
     def calculateFinalData(self, teamsFromEvent):
         numOfTeams = len(teamsFromEvent.index)
+        fullDataFrame = pd.DataFrame()
         for q in range(0, numOfTeams):
             teamNum = teamsFromEvent.index[q]
             teamKey = self.getTeamKey(teamNum)
             teamObject = self.getTeamStats(numOfMatches=100, teamKey=teamKey)
+            if type(teamObject) == int:
+                continue
             teamAutonScore = self.calculateAutonScore(teamObject=teamObject, teamKey=teamKey)
             teamTeleopScore = self.calculateTeleopScore(teamObject=teamObject, teamKey=teamKey)
             teamEndgameScore = self.calculateEndgameScore(teamObject=teamObject, teamKey=teamKey)
             seriesData = [teamAutonScore, teamTeleopScore, teamEndgameScore]
             finalSeries = pd.Series(data=seriesData, index=["autonScore", "teleopScore", "endgameScore"])
-            print("Final series for team #:" + str(teamNum))
-            print(finalSeries)
+            fullDataFrame[teamNum] = finalSeries
+
 
 
 test = DataCollectionAnalysis()
-milfordTeams = test.getEventTeams(test.getEventKey(eventName="FIM District Milford Event"))
-test.calculateFinalData(milfordTeams)
-
+# milfordTeams = test.getEventTeams(test.getEventKey(eventName="FIM District Milford Event"))
+# test.calculateFinalData(milfordTeams)
+eventKey = test.getEventKey(eventName="FIM District Milford Event")
+teamKey = test.getTeamKey(67)
+test.getTeamStats(teamKey=teamKey, numOfMatches=10, eventKey=eventKey)
 
 # teamKey = test.getTeamKey(teamNumber=67)
 # teamStats = test.getTeamStats(numOfMatches=100, teamKey=teamKey)
