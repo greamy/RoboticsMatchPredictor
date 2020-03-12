@@ -52,13 +52,17 @@ class DataCollectionAnalysis():
         matchKeyJson = requests.get(url=(self.link + "team/" + str(teamKey) + "/matches/2020/keys"),
                                     headers=self.headers)
         matchKeyData = pd.read_json(path_or_buf=matchKeyJson.text, typ="series", convert_dates=False)
-        matchExampleKey = matchKeyData[matchNumber]
+        try:
+            matchExampleKey = matchKeyData[matchNumber]
+        except IndexError:
+            return
         return matchExampleKey
 
     def getTeamStats(self, numOfMatches, teamKey):
         # This function returns as many sample matches you need from a team, all in one data frame!
         # It also puts the score breakdown Stats into its own DataFrame, stored within the outer one.
         matchData = pd.DataFrame()
+        print(numOfMatches)
         for i in range(0, numOfMatches):
             try:
                 matchJson = requests.get(url=(self.link + "match/" + str(self.getMatchKey(teamKey, i))),
@@ -194,11 +198,17 @@ class DataCollectionAnalysis():
         endgameScore = ((5.*percentParked) + (25.*percentHanging) + (15.*percentLevel))
         return endgameScore
 
+    def getEventKey(self, eventName):
+        eventKey = ""
+        eventsJson = requests.get(url=(self.link + "events/" + "2020"), headers=self.headers)
+        eventsData = pd.read_json(path_or_buf=eventsJson.text, typ="frame", convert_dates=False)
+        # numOfEvents = eventsData.xs()
+
 
 test = DataCollectionAnalysis()
-teamKey = test.getTeamKey(teamNumber=1076)
-teamStats = test.getTeamStats(numOfMatches=100000, teamKey=teamKey)
-print(str(test.calculateAutonScore(teamObject=teamStats, teamKey=teamKey)) + ": Auton Score")
-print(str(test.calculateTeleopScore(teamObject=teamStats, teamKey=teamKey)) + ": TeleopScore")
-print(str(test.calculateEndgameScore(teamObject=teamStats, teamKey=teamKey)) + ": Endgame Score")
-
+test.getEventKey(eventName="FIM District Milford Event")
+# teamKey = test.getTeamKey(teamNumber=67)
+# teamStats = test.getTeamStats(numOfMatches=100, teamKey=teamKey)
+# print(str(test.calculateAutonScore(teamObject=teamStats, teamKey=teamKey)) + ": Auton Score")
+# print(str(test.calculateTeleopScore(teamObject=teamStats, teamKey=teamKey)) + ": TeleopScore")
+# print(str(test.calculateEndgameScore(teamObject=teamStats, teamKey=teamKey)) + ": Endgame Score")
