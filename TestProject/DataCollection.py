@@ -68,6 +68,7 @@ class DataCollectionAnalysis():
         # It also puts the score breakdown Stats into its own DataFrame, stored within the outer one.
 
         matchJson = requests.get(url=(self.link + "team/" + str(teamKey) + "/event/" + str(eventKey) + "/matches"), headers=self.headers)
+        print("Team stats request status code: " + str(matchJson.status_code))
         matchData = pd.read_json(path_or_buf=matchJson.text, typ="frame", convert_dates=False)
         numOfMatches = len(matchData.index)
         if numOfMatches == 0:
@@ -84,17 +85,19 @@ class DataCollectionAnalysis():
         return matchData
 
     @staticmethod
-    def getTeamAllianceInfo(match, teamKey):
+    def getTeamAllianceInfo(match, teamKey=-1):
         allianceBreakdown = match["alliances"]
-
         blueAllianceTeamKeys = allianceBreakdown['blue.team_keys']
         redAllianceTeamKeys = allianceBreakdown['red.team_keys']
-        for q in range(0, len(blueAllianceTeamKeys.get(0))):
-            if teamKey == blueAllianceTeamKeys.get(0)[q]:
-                return {"allianceColor": "blue", "teamAllianceNum": q+1}
-        for j in range(0, len(redAllianceTeamKeys.get(0))):
-            if teamKey == redAllianceTeamKeys.get(0)[j]:
-                return {"allianceColor": "red", "teamAllianceNum": j+1}
+        if teamKey == -1:
+            return {"blueAllianceKeys": blueAllianceTeamKeys[0], "redAllianceKeys": redAllianceTeamKeys[0]}
+        else:
+            for q in range(0, len(blueAllianceTeamKeys.get(0))):
+                if teamKey == blueAllianceTeamKeys.get(0)[q]:
+                    return {"allianceColor": "blue", "teamAllianceNum": q + 1}
+            for j in range(0, len(redAllianceTeamKeys.get(0))):
+                if teamKey == redAllianceTeamKeys.get(0)[j]:
+                    return {"allianceColor": "red", "teamAllianceNum": j + 1}
 
     def calculateAutonScore(self, teamObject, teamKey):
         scoreBreakdown = teamObject.xs(key="score_breakdown", axis=1)
@@ -221,14 +224,14 @@ class DataCollectionAnalysis():
         for r in range(0, numOfTeams):
             tempNum = teamsData.xs(key="team_number", axis=1).iat[r]
             teamsData = teamsData.rename(index={r: tempNum})
+            print("Got team: " + str(tempNum))
         return teamsData
 
-    def calculateFinalData(self, teamsFromEvent):
+    def calculateTeamData(self, teamsFromEvent):
         numOfTeams = len(teamsFromEvent.index)
         fullDataFrame = pd.DataFrame()
         for q in range(0, numOfTeams):
-            teamNum = teamsFromEvent.index[q]
-            teamKey = self.getTeamKey(teamNum)
+            teamKey = self.getTeamKey(teamsFromEvent.index[q])
             teamObject = self.getTeamStats(teamKey=teamKey, eventKey=self.eventKey)
             if type(teamObject) == int:
                 continue
@@ -237,20 +240,52 @@ class DataCollectionAnalysis():
             teamEndgameScore = self.calculateEndgameScore(teamObject=teamObject, teamKey=teamKey)
             seriesData = [teamAutonScore, teamTeleopScore, teamEndgameScore]
             finalSeries = pd.Series(data=seriesData, index=["autonScore", "teleopScore", "endgameScore"])
-            print(finalSeries)
-            fullDataFrame[teamNum] = finalSeries
+            # print("Calculated Team Data for: " + str(teamKey))
+            fullDataFrame[teamKey] = finalSeries
         return fullDataFrame.transpose()
+
+    def getEventMatches(self, eventKey):
+        matchJson = requests.get(url=(self.link + "event/" + str(eventKey) + "/matches"), headers=self.headers)
+        matchData = pd.read_json(path_or_buf=matchJson.text, typ="frame", convert_dates=False)
+        return matchData
+
+    def eventMatchesFormatted(self, eventName):
+        eventKey = self.getEventKey(eventName)
+        allMatches = self.getEventMatches(eventKey)
+        teamsFromEvent = self.getEventTeams(eventKey=eventKey)
+        teamData = self.calculateTeamData(teamsFromEvent=teamsFromEvent)
+
+        numOfMatches = len(allMatches.index)
+        eventMatches = pd.DataFrame(index=range(0, numOfMatches), columns=["Blue Alliance", "Red Alliance", "winning_alliance"])
+        for i in range(0, numOfMatches):
+            print("loop #" + str(i))
+            currentMatch = allMatches.loc[i]
+
+            tempAlliances = pd.json_normalize(data=currentMatch["alliances"])
+            tempScoreBreakdown = pd.json_normalize(data=currentMatch["score_breakdown"])
+            currentMatch.at["alliances"] = tempAlliances
+            currentMatch.at["score_breakdown"] = tempScoreBreakdown
+            allianceInfo = self.getTeamAllianceInfo(currentMatch)
+
+            blueAllianceKeys = allianceInfo["blueAllianceKeys"]
+            blueAllianceStats = pd.DataFrame()
+            redAllianceKeys = allianceInfo["redAllianceKeys"]
+            redAllianceStats = pd.DataFrame()
+            for b in range(0, 3):
+                teamKey = blueAllianceKeys[b]
+                tempTeamData = teamData.xs(key=teamKey, axis=0)
+                blueAllianceStats[teamKey] = tempTeamData
+            for r in range(0, 3):
+                teamKey = redAllianceKeys[b]
+                tempTeamData = teamData.xs(key=teamKey, axis=0)
+                redAllianceStats[teamKey] = tempTeamData
+            winningAlliance = currentMatch["winning_alliance"]
+
+            eventMatches.at[i, "Blue Alliance"] = blueAllianceStats
+            eventMatches.at[i, "Red Alliance"] = redAllianceStats
+            eventMatches.at[i, "winning_alliance"] = winningAlliance
+        return eventMatches
 
 
 test = DataCollectionAnalysis()
-milfordTeams = test.getEventTeams(test.eventKey)
-print(test.calculateFinalData(milfordTeams))
-# eventKey = test.getEventKey(eventName="FIM District Milford Event")
-# teamKey = test.getTeamKey(67)
-# print(test.getTeamStats(teamKey=teamKey, numOfMatches=10, eventKey=eventKey))
-
-# teamKey = test.getTeamKey(teamNumber=67)
-# teamStats = test.getTeamStats(numOfMatches=100, teamKey=teamKey)
-# print(str(test.calculateAutonScore(teamObject=teamStats, teamKey=teamKey)) + ": Auton Score")
-# print(str(test.calculateTeleopScore(teamObject=teamStats, teamKey=teamKey)) + ": TeleopScore")
-# print(str(test.calculateEndgameScore(teamObject=teamStats, teamKey=teamKey)) + ": Endgame Score")
+test.eventMatchesFormatted(test.eventName)
