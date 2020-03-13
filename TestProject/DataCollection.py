@@ -276,7 +276,7 @@ class DataCollectionAnalysis():
                 tempTeamData = teamData.xs(key=teamKey, axis=0)
                 blueAllianceStats[teamKey] = tempTeamData
             for r in range(0, 3):
-                teamKey = redAllianceKeys[b]
+                teamKey = redAllianceKeys[r]
                 tempTeamData = teamData.xs(key=teamKey, axis=0)
                 redAllianceStats[teamKey] = tempTeamData
             winningAlliance = currentMatch["winning_alliance"]
@@ -288,4 +288,27 @@ class DataCollectionAnalysis():
 
 
 test = DataCollectionAnalysis()
-test.eventMatchesFormatted(test.eventName)
+eventMatches = test.eventMatchesFormatted(test.eventName)
+print(eventMatches.at[55, "Blue Alliance"])
+correctCount = 0
+for s in range(0, len(eventMatches.index)):
+    currentBlue = eventMatches.at[s, "Blue Alliance"]
+    avgBlueAuton = (currentBlue.iat[0, 0] + currentBlue.iat[0, 1] + currentBlue.iat[0, 2])/3
+    avgBlueTeleop = (currentBlue.iat[1, 0] + currentBlue.iat[1, 1] + currentBlue.iat[1, 2])/3
+    avgBlueEndgame = (currentBlue.iat[2, 0] + currentBlue.iat[2, 1] + currentBlue.iat[2, 2])/3
+    blueScore = avgBlueAuton+avgBlueTeleop+avgBlueEndgame
+
+    currentRed = eventMatches.at[s, "Red Alliance"]
+    avgRedAuton = (currentRed.iat[0, 0] + currentRed.iat[0, 1] + currentRed.iat[0, 2])/3
+    avgRedTeleop = (currentRed.iat[1, 0] + currentRed.iat[1, 1] + currentRed.iat[1, 2])/3
+    avgRedEndgame = (currentRed.iat[2, 0] + currentRed.iat[2, 1] + currentRed.iat[2, 2])/3
+    redScore = avgRedAuton+avgRedTeleop+avgBlueEndgame
+
+    winning_alliance = eventMatches.at[s, "winning_alliance"]
+    if blueScore > redScore and winning_alliance == "blue":
+        correctCount += 1
+    elif redScore > blueScore and winning_alliance == "red":
+        correctCount += 1
+
+print(correctCount)
+
