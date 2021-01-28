@@ -21,34 +21,36 @@ class DataCollectionAnalysis():
         # Base TBA API Link, so I don't have to retype it over and over
         self.link = "https://www.thebluealliance.com/api/v3/"
         self.eventName = "FIM District Milford Event"
-        self.eventKey = self.getEventKey(self.eventName)
+        self.eventKey = self.getEventKey()
 
     def getTeamKey(self, teamNumber):
+
+        key = "frc" + str(teamNumber)
+        return key
         # TBA Has a separate team key for every team. This gets it for you based on team number you input
-        foundKey = False
-        for i in range(0, 100):  # Only searches first 100 pages of the API Json files
-            if foundKey:  # stops looping when it finds the right team
-                break
-
-            # This Gets JSon file into a string.
-            json = requests.get(url=(self.link + "teams/2020/" + str(i)), headers=self.headers)
-            if json.status_code != 200:
-                # 200 is the Good return value. If We stop connecting to API correctly, stop looping.
-                break
-
-            # Converts Json String into Pandas DataFrame Object.
-            data = pd.read_json(path_or_buf=json.text, typ="frame", convert_dates=False)
-            for q in range(0, len(json.json())):
-                # Checks DataFrame Object for the team number we are looking for.
-                if data.at[q, "team_number"] == teamNumber:
-                    key = data.at[q, "key"]
-                    foundKey = True
-                    break
-
-        if foundKey:
-            return key
-        else:
-            return -1  # If the function failed for some reason, it returns -1
+        # foundKey = False
+        # for i in range(0, 100):  # Only searches first 100 pages of the API Json files
+        #     if foundKey:  # stops looping when it finds the right team
+        #         break
+        #
+        #     # This Gets JSon file into a string.
+        #     json = requests.get(url=(self.link + "teams/2020/" + str(i)), headers=self.headers)
+        #     if json.status_code != 200:
+        #         # 200 is the Good return value. If We stop connecting to API correctly, stop looping.
+        #         break
+        #
+        #     # Converts Json String into Pandas DataFrame Object.
+        #     data = pd.read_json(path_or_buf=json.text, typ="frame", convert_dates=False)
+        #     for q in range(0, len(json.json())):
+        #         # Checks DataFrame Object for the team number we are looking for.
+        #         if data.at[q, "team_number"] == teamNumber:
+        #             key = data.at[q, "key"]
+        #             foundKey = True
+        #             break
+        # if foundKey:
+        #     return key
+        # else:
+        #     return -1  # If the function failed for some reason, it returns -1
 
     def getMatchKey(self, teamKey, matchNumber):  # Every Match Has its own unique Key, this finds it for you
         matchKeyJson = requests.get(url=(self.link + "team/" + str(teamKey) + "/matches/2020/keys"),
@@ -68,7 +70,7 @@ class DataCollectionAnalysis():
         # It also puts the score breakdown Stats into its own DataFrame, stored within the outer one.
 
         matchJson = requests.get(url=(self.link + "team/" + str(teamKey) + "/event/" + str(eventKey) + "/matches"), headers=self.headers)
-        print("Team stats request status code: " + str(matchJson.status_code))
+        #print("Team stats request status code: " + str(matchJson.status_code))
         matchData = pd.read_json(path_or_buf=matchJson.text, typ="frame", convert_dates=False)
         numOfMatches = len(matchData.index)
         if numOfMatches == 0:
@@ -200,7 +202,7 @@ class DataCollectionAnalysis():
         endgameScore = ((5.*percentParked) + (25.*percentHanging) + (15.*percentLevel))
         return endgameScore
 
-    def getEventKey(self, eventName):
+    def getEventKey(self):
         foundKey = False
         eventKey = ""
         eventsJson = requests.get(url=(self.link + "events/" + "2020"), headers=self.headers)
@@ -208,7 +210,7 @@ class DataCollectionAnalysis():
         numOfEvents = len(eventsData.index)
         for i in range(0, numOfEvents):
 
-            if eventsData.xs(key="name", axis=1).iat[i] == str(eventName):
+            if eventsData.xs(key="name", axis=1).iat[i] == self.eventName:
                 eventKey = eventsData.xs(key="key", axis=1).iat[i]
                 foundKey = True
                 break
@@ -249,10 +251,9 @@ class DataCollectionAnalysis():
         matchData = pd.read_json(path_or_buf=matchJson.text, typ="frame", convert_dates=False)
         return matchData
 
-    def eventMatchesFormatted(self, eventName):
-        eventKey = self.getEventKey(eventName)
-        allMatches = self.getEventMatches(eventKey)
-        teamsFromEvent = self.getEventTeams(eventKey=eventKey)
+    def eventMatchesFormatted(self):
+        allMatches = self.getEventMatches(self.eventKey)
+        teamsFromEvent = self.getEventTeams(eventKey=self.eventKey)
         teamData = self.calculateTeamData(teamsFromEvent=teamsFromEvent)
 
         numOfMatches = len(allMatches.index)
@@ -284,11 +285,41 @@ class DataCollectionAnalysis():
             eventMatches.at[i, "Blue Alliance"] = blueAllianceStats
             eventMatches.at[i, "Red Alliance"] = redAllianceStats
             eventMatches.at[i, "winning_alliance"] = winningAlliance
+
+        # fileTest = open("eventMatchesFormatted.txt", "w+")
+        # for i in range(0, numOfMatches):
+        #     fileTest.write("\n" + str(eventMatches.at[i, "Blue Alliance"].to_json))
+        # for i in range(0, numOfMatches):
+        #     fileTest.write("\n" + str(eventMatches.at[i, "Red Alliance"].to_json))
+        #
+        # fileTest.write("\n" + str(eventMatches["winning_alliance"].to_json()))
+        # fileTest.close()
+
         return eventMatches
+
+    # def eventMatchesFormattedFromFile(self):
+    #     eventMatches = pd.read_json(path_or_buf="eventMatchesFormatted.json")
+    #     numOfMatches = len(eventMatches.index)
+    #     for i in range(0, numOfMatches):
+    #         temp = open("temp.txt", "w+")
+    #         blueAllianceJson = str(eventMatches.at[i, "Blue Alliance"])
+    #         print(blueAllianceJson)
+    #         temp.write(blueAllianceJson)
+    #         temp.close()
+    #
+    #         tempRead = open("temp.txt", "r")
+    #         blueAllianceStats = pd.read_json(tempRead.read(), typ="series")
+    #         print(blueAllianceStats)
+    #         tempRead.close()
+    #     print(eventMatches)
+    #     return eventMatches
+
 
 
 test = DataCollectionAnalysis()
-eventMatches = test.eventMatchesFormatted(test.eventName)
+eventMatches = test.eventMatchesFormatted()
+# eventMatches = test.eventMatchesFormattedFromFile()
+print(eventMatches)
 print(eventMatches.at[55, "Blue Alliance"])
 correctCount = 0
 for s in range(0, len(eventMatches.index)):
@@ -296,13 +327,13 @@ for s in range(0, len(eventMatches.index)):
     avgBlueAuton = (currentBlue.iat[0, 0] + currentBlue.iat[0, 1] + currentBlue.iat[0, 2])/3
     avgBlueTeleop = (currentBlue.iat[1, 0] + currentBlue.iat[1, 1] + currentBlue.iat[1, 2])/3
     avgBlueEndgame = (currentBlue.iat[2, 0] + currentBlue.iat[2, 1] + currentBlue.iat[2, 2])/3
-    blueScore = avgBlueAuton+avgBlueTeleop+avgBlueEndgame
+    blueScore = avgBlueAuton + avgBlueTeleop + avgBlueEndgame
 
     currentRed = eventMatches.at[s, "Red Alliance"]
     avgRedAuton = (currentRed.iat[0, 0] + currentRed.iat[0, 1] + currentRed.iat[0, 2])/3
     avgRedTeleop = (currentRed.iat[1, 0] + currentRed.iat[1, 1] + currentRed.iat[1, 2])/3
     avgRedEndgame = (currentRed.iat[2, 0] + currentRed.iat[2, 1] + currentRed.iat[2, 2])/3
-    redScore = avgRedAuton+avgRedTeleop+avgBlueEndgame
+    redScore = avgRedAuton + avgRedTeleop + avgBlueEndgame
 
     winning_alliance = eventMatches.at[s, "winning_alliance"]
     if blueScore > redScore and winning_alliance == "blue":
@@ -310,5 +341,5 @@ for s in range(0, len(eventMatches.index)):
     elif redScore > blueScore and winning_alliance == "red":
         correctCount += 1
 
-print(correctCount)
-
+correctPercent = correctCount/len(eventMatches.index)
+print(correctPercent)
