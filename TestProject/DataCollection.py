@@ -6,7 +6,6 @@ from matplotlib import gridspec
 from matplotlib import pyplot as plt
 import numpy as np
 from sklearn import metrics
-import tensorflow as tf
 import pandas as pd
 import requests
 
@@ -15,12 +14,12 @@ class DataCollectionAnalysis():
     pd.options.display.max_rows = 10
     pd.options.display.float_format = '{:.1f}'.format
 
-    def __init__(self):
+    def __init__(self, event):
         # Needed for API Security
         self.headers = {'X-TBA-Auth-Key': 'uGgrrwF5M7RwNn2JmRr9UHFWw9gkYPevgzzWhF8VLequIboEbd5zcUvmPc800uHB'}
         # Base TBA API Link, so I don't have to retype it over and over
         self.link = "https://www.thebluealliance.com/api/v3/"
-        self.eventName = "FIM District Milford Event"
+        self.eventName = event
         self.eventKey = self.getEventKey()
 
     def getTeamKey(self, teamNumber):
@@ -226,7 +225,7 @@ class DataCollectionAnalysis():
         for r in range(0, numOfTeams):
             tempNum = teamsData.xs(key="team_number", axis=1).iat[r]
             teamsData = teamsData.rename(index={r: tempNum})
-            print("Got team: " + str(tempNum))
+            # print("Got team: " + str(tempNum))
         return teamsData
 
     def calculateTeamData(self, teamsFromEvent):
@@ -259,7 +258,6 @@ class DataCollectionAnalysis():
         numOfMatches = len(allMatches.index)
         eventMatches = pd.DataFrame(index=range(0, numOfMatches), columns=["Blue Alliance", "Red Alliance", "winning_alliance"])
         for i in range(0, numOfMatches):
-            print("loop #" + str(i))
             currentMatch = allMatches.loc[i]
 
             tempAlliances = pd.json_normalize(data=currentMatch["alliances"])
@@ -314,32 +312,71 @@ class DataCollectionAnalysis():
     #     print(eventMatches)
     #     return eventMatches
 
+    def numbersOnly(self, eventMatches):
+        numOfMatches = len(eventMatches.index)
+        # Creates Array with 0's, with enough spaces to hole each score.
+        numberList = [[[0 for x in range(9)], [0 for x in range(9)]] for x in range(numOfMatches)]
+        for i in range(numOfMatches):
+            xsize = len(eventMatches.at[i, "Blue Alliance"].index)
+            ysize = len(eventMatches.at[i, "Blue Alliance"].columns)
+            count = 0
+            for x in range(xsize):
+                for y in range(ysize):
+                    numberList[i][0][count] = eventMatches.at[i, "Blue Alliance"].iat[x, y]
+                    numberList[i][1][count] = eventMatches.at[i, "Red Alliance"].iat[x, y]
+                    count += 1
+        return numberList
+
+    @staticmethod
+    def labelsToNums(labels):
+        for i in range(len(labels)):
+            if labels[i] == 'red':
+                labels[i] = 0
+            elif labels[i] == 'blue':
+                labels[i] = 1
+        return labels
+
+    def cleanData(self, data, labels):
+        countDeleted = 0
+        for i in range(len(labels)):
+            changeNum = (i-1)-countDeleted
+            if labels[changeNum] != 'red' and labels[changeNum] != 'blue':
+                labels = np.delete(labels, changeNum)
+                data = np.delete(data, changeNum, 0)
+                countDeleted += 1
+        return [data, labels]
+
+    def getDataAndLabels(self):
+        data = self.eventMatchesFormatted()
+        labels = data.pop("winning_alliance").to_numpy()
+        data = self.numbersOnly(data)
+        data = np.array(data)
+        clean = self.cleanData(data, labels)
+        data = clean[0]
+        labels = clean[1]
+        labels = self.labelsToNums(labels)
+        return [data, labels]
 
 
-test = DataCollectionAnalysis()
-eventMatches = test.eventMatchesFormatted()
-# eventMatches = test.eventMatchesFormattedFromFile()
-print(eventMatches)
-print(eventMatches.at[55, "Blue Alliance"])
-correctCount = 0
-for s in range(0, len(eventMatches.index)):
-    currentBlue = eventMatches.at[s, "Blue Alliance"]
-    avgBlueAuton = (currentBlue.iat[0, 0] + currentBlue.iat[0, 1] + currentBlue.iat[0, 2])/3
-    avgBlueTeleop = (currentBlue.iat[1, 0] + currentBlue.iat[1, 1] + currentBlue.iat[1, 2])/3
-    avgBlueEndgame = (currentBlue.iat[2, 0] + currentBlue.iat[2, 1] + currentBlue.iat[2, 2])/3
-    blueScore = avgBlueAuton + avgBlueTeleop + avgBlueEndgame
-
-    currentRed = eventMatches.at[s, "Red Alliance"]
-    avgRedAuton = (currentRed.iat[0, 0] + currentRed.iat[0, 1] + currentRed.iat[0, 2])/3
-    avgRedTeleop = (currentRed.iat[1, 0] + currentRed.iat[1, 1] + currentRed.iat[1, 2])/3
-    avgRedEndgame = (currentRed.iat[2, 0] + currentRed.iat[2, 1] + currentRed.iat[2, 2])/3
-    redScore = avgRedAuton + avgRedTeleop + avgBlueEndgame
-
-    winning_alliance = eventMatches.at[s, "winning_alliance"]
-    if blueScore > redScore and winning_alliance == "blue":
-        correctCount += 1
-    elif redScore > blueScore and winning_alliance == "red":
-        correctCount += 1
-
-correctPercent = correctCount/len(eventMatches.index)
-print(correctPercent)
+# correctCount = 0
+# for s in range(0, len(eventMatches.index)):
+#     currentBlue = eventMatches.at[s, "Blue Alliance"]
+#     avgBlueAuton = (currentBlue.iat[0, 0] + currentBlue.iat[0, 1] + currentBlue.iat[0, 2])/3
+#     avgBlueTeleop = (currentBlue.iat[1, 0] + currentBlue.iat[1, 1] + currentBlue.iat[1, 2])/3
+#     avgBlueEndgame = (currentBlue.iat[2, 0] + currentBlue.iat[2, 1] + currentBlue.iat[2, 2])/3
+#     blueScore = avgBlueAuton + avgBlueTeleop + avgBlueEndgame
+#
+#     currentRed = eventMatches.at[s, "Red Alliance"]
+#     avgRedAuton = (currentRed.iat[0, 0] + currentRed.iat[0, 1] + currentRed.iat[0, 2])/3
+#     avgRedTeleop = (currentRed.iat[1, 0] + currentRed.iat[1, 1] + currentRed.iat[1, 2])/3
+#     avgRedEndgame = (currentRed.iat[2, 0] + currentRed.iat[2, 1] + currentRed.iat[2, 2])/3
+#     redScore = avgRedAuton + avgRedTeleop + avgBlueEndgame
+#
+#     winning_alliance = labels[s]
+#     if blueScore > redScore and winning_alliance == "blue":
+#         correctCount += 1
+#     elif redScore > blueScore and winning_alliance == "red":
+#         correctCount += 1
+#
+# correctPercent = correctCount/len(eventMatches.index)
+# print(correctPercent)
