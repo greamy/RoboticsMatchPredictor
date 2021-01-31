@@ -32,6 +32,7 @@
   </component>
   <component name="PropertiesComponent">
     <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
+    <property name="ASKED_SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/TestProject/DataCollection.py" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
@@ -123,38 +124,50 @@
       <option name="project" value="LOCAL" />
       <updated>1611871630811</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Added tensorflow AI calls, and have a working AI with 75% accuracy, now I need to tweak the neural layers and parameters. Also Added more data, and easy collection of data.">
+      <created>1611982160146</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1611982160147</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Edited Team Keys to not use API, more time efficient. Also has semi-working file storage and retrieval code." />
-    <option name="LAST_COMMIT_MESSAGE" value="Edited Team Keys to not use API, more time efficient. Also has semi-working file storage and retrieval code." />
+    <MESSAGE value="Added tensorflow AI calls, and have a working AI with 75% accuracy, now I need to tweak the neural layers and parameters. Also Added more data, and easy collection of data." />
+    <option name="LAST_COMMIT_MESSAGE" value="Added tensorflow AI calls, and have a working AI with 75% accuracy, now I need to tweak the neural layers and parameters. Also Added more data, and easy collection of data." />
   </component>
   <component name="WindowStateProjectService">
     <state x="96" y="0" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1611950751151">
       <screen x="0" y="0" width="1280" height="680" />
     </state>
     <state x="96" y="0" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.1280.680@0.0.1280.680" timestamp="1611950751151" />
-    <state x="297" y="0" key="CommitChangelistDialog2" timestamp="1611871628696">
+    <state x="401" y="144" key="#com.intellij.fileTypes.FileTypeChooser" timestamp="1612044113811">
       <screen x="0" y="0" width="1280" height="680" />
     </state>
-    <state x="297" y="0" key="CommitChangelistDialog2/0.0.1280.680@0.0.1280.680" timestamp="1611871628696" />
-    <state width="1259" height="125" key="GridCell.Tab.0.bottom" timestamp="1611981979989">
+    <state x="401" y="144" key="#com.intellij.fileTypes.FileTypeChooser/0.0.1280.680@0.0.1280.680" timestamp="1612044113811" />
+    <state x="183" y="0" key="CommitChangelistDialog2" timestamp="1611982150800">
       <screen x="0" y="0" width="1280" height="680" />
     </state>
-    <state width="1259" height="125" key="GridCell.Tab.0.bottom/0.0.1280.680@0.0.1280.680" timestamp="1611981979989" />
-    <state width="1259" height="125" key="GridCell.Tab.0.center" timestamp="1611981979989">
+    <state x="183" y="0" key="CommitChangelistDialog2/0.0.1280.680@0.0.1280.680" timestamp="1611982150800" />
+    <state width="1259" height="125" key="GridCell.Tab.0.bottom" timestamp="1612054360326">
       <screen x="0" y="0" width="1280" height="680" />
     </state>
-    <state width="1259" height="125" key="GridCell.Tab.0.center/0.0.1280.680@0.0.1280.680" timestamp="1611981979989" />
-    <state width="1259" height="125" key="GridCell.Tab.0.left" timestamp="1611981979989">
+    <state width="1259" height="125" key="GridCell.Tab.0.bottom/0.0.1280.680@0.0.1280.680" timestamp="1612054360326" />
+    <state width="1259" height="125" key="GridCell.Tab.0.center" timestamp="1612054360326">
       <screen x="0" y="0" width="1280" height="680" />
     </state>
-    <state width="1259" height="125" key="GridCell.Tab.0.left/0.0.1280.680@0.0.1280.680" timestamp="1611981979989" />
-    <state width="1259" height="125" key="GridCell.Tab.0.right" timestamp="1611981979989">
+    <state width="1259" height="125" key="GridCell.Tab.0.center/0.0.1280.680@0.0.1280.680" timestamp="1612054360326" />
+    <state width="1259" height="125" key="GridCell.Tab.0.left" timestamp="1612054360326">
       <screen x="0" y="0" width="1280" height="680" />
     </state>
-    <state width="1259" height="125" key="GridCell.Tab.0.right/0.0.1280.680@0.0.1280.680" timestamp="1611981979989" />
+    <state width="1259" height="125" key="GridCell.Tab.0.left/0.0.1280.680@0.0.1280.680" timestamp="1612054360326" />
+    <state width="1259" height="125" key="GridCell.Tab.0.right" timestamp="1612054360326">
+      <screen x="0" y="0" width="1280" height="680" />
+    </state>
+    <state width="1259" height="125" key="GridCell.Tab.0.right/0.0.1280.680@0.0.1280.680" timestamp="1612054360326" />
     <state x="142" y="0" key="SettingsEditor" timestamp="1611948448675">
       <screen x="0" y="0" width="1280" height="680" />
     </state>

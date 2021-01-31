@@ -69,7 +69,7 @@ class DataCollectionAnalysis():
         # It also puts the score breakdown Stats into its own DataFrame, stored within the outer one.
 
         matchJson = requests.get(url=(self.link + "team/" + str(teamKey) + "/event/" + str(eventKey) + "/matches"), headers=self.headers)
-        #print("Team stats request status code: " + str(matchJson.status_code))
+        # print("Team stats request status code: " + str(matchJson.status_code))
         matchData = pd.read_json(path_or_buf=matchJson.text, typ="frame", convert_dates=False)
         numOfMatches = len(matchData.index)
         if numOfMatches == 0:
@@ -128,7 +128,6 @@ class DataCollectionAnalysis():
         # Multiply the point value of leaving the initiation line by how often they do it.
         initiationLineScore = (float(initiationLineCt)/float(numOfMatches))*5.
         return bottomGoals+upperGoals+innerGoals+initiationLineScore
-
 
     def calculateTeleopScore(self, teamObject, teamKey):
         # TO-DO: Add control panel and stage stuff and subtract foul points
@@ -225,7 +224,12 @@ class DataCollectionAnalysis():
         for r in range(0, numOfTeams):
             tempNum = teamsData.xs(key="team_number", axis=1).iat[r]
             teamsData = teamsData.rename(index={r: tempNum})
-            # print("Got team: " + str(tempNum))
+            # if type(teamsData.loc[tempNum]["team_number"]) == pd.core.series.Series:
+            #     print(teamsData.at[tempNum, "team_number"][0])
+            #     teamsData.at[tempNum, "team_number"] = teamsData.at[tempNum, "team_number"][0]
+            # print("Got team: " + str(teamsData.at[tempNum, "team_number"]))
+            # print(type(teamsData.at[tempNum, "team_number"]))
+
         return teamsData
 
     def calculateTeamData(self, teamsFromEvent):
@@ -235,6 +239,7 @@ class DataCollectionAnalysis():
             teamKey = self.getTeamKey(teamsFromEvent.index[q])
             teamObject = self.getTeamStats(teamKey=teamKey, eventKey=self.eventKey)
             if type(teamObject) == int:
+                print("team " + str(teamKey) + " had an error")
                 continue
             teamAutonScore = self.calculateAutonScore(teamObject=teamObject, teamKey=teamKey)
             teamTeleopScore = self.calculateTeleopScore(teamObject=teamObject, teamKey=teamKey)
@@ -257,60 +262,46 @@ class DataCollectionAnalysis():
 
         numOfMatches = len(allMatches.index)
         eventMatches = pd.DataFrame(index=range(0, numOfMatches), columns=["Blue Alliance", "Red Alliance", "winning_alliance"])
-        for i in range(0, numOfMatches):
-            currentMatch = allMatches.loc[i]
+        for i in range(numOfMatches):
+            try:
+                currentMatch = allMatches.loc[i]
 
-            tempAlliances = pd.json_normalize(data=currentMatch["alliances"])
-            tempScoreBreakdown = pd.json_normalize(data=currentMatch["score_breakdown"])
-            currentMatch.at["alliances"] = tempAlliances
-            currentMatch.at["score_breakdown"] = tempScoreBreakdown
-            allianceInfo = self.getTeamAllianceInfo(currentMatch)
+                tempAlliances = pd.json_normalize(data=currentMatch["alliances"])
+                tempScoreBreakdown = pd.json_normalize(data=currentMatch["score_breakdown"])
+                currentMatch.at["alliances"] = tempAlliances
+                currentMatch.at["score_breakdown"] = tempScoreBreakdown
+                allianceInfo = self.getTeamAllianceInfo(currentMatch)
 
-            blueAllianceKeys = allianceInfo["blueAllianceKeys"]
-            blueAllianceStats = pd.DataFrame()
-            redAllianceKeys = allianceInfo["redAllianceKeys"]
-            redAllianceStats = pd.DataFrame()
-            for b in range(0, 3):
-                teamKey = blueAllianceKeys[b]
-                tempTeamData = teamData.xs(key=teamKey, axis=0)
-                blueAllianceStats[teamKey] = tempTeamData
-            for r in range(0, 3):
-                teamKey = redAllianceKeys[r]
-                tempTeamData = teamData.xs(key=teamKey, axis=0)
-                redAllianceStats[teamKey] = tempTeamData
-            winningAlliance = currentMatch["winning_alliance"]
+                blueAllianceKeys = allianceInfo["blueAllianceKeys"]
+                blueAllianceStats = pd.DataFrame()
+                redAllianceKeys = allianceInfo["redAllianceKeys"]
+                redAllianceStats = pd.DataFrame()
+                for b in range(0, 3):
+                    teamKey = blueAllianceKeys[b]
+                    tempTeamData = teamData.xs(key=teamKey, axis=0)
+                    blueAllianceStats[teamKey] = tempTeamData
+                for r in range(0, 3):
+                    teamKey = redAllianceKeys[r]
+                    tempTeamData = teamData.xs(key=teamKey, axis=0)
+                    redAllianceStats[teamKey] = tempTeamData
+                winningAlliance = currentMatch["winning_alliance"]
 
-            eventMatches.at[i, "Blue Alliance"] = blueAllianceStats
-            eventMatches.at[i, "Red Alliance"] = redAllianceStats
-            eventMatches.at[i, "winning_alliance"] = winningAlliance
+                eventMatches.at[i, "Blue Alliance"] = blueAllianceStats
+                eventMatches.at[i, "Red Alliance"] = redAllianceStats
+                eventMatches.at[i, "winning_alliance"] = winningAlliance
 
-        # fileTest = open("eventMatchesFormatted.txt", "w+")
-        # for i in range(0, numOfMatches):
-        #     fileTest.write("\n" + str(eventMatches.at[i, "Blue Alliance"].to_json))
-        # for i in range(0, numOfMatches):
-        #     fileTest.write("\n" + str(eventMatches.at[i, "Red Alliance"].to_json))
-        #
-        # fileTest.write("\n" + str(eventMatches["winning_alliance"].to_json()))
-        # fileTest.close()
+            except IndexError:
+                print("Index out of bounds, skipping to end")
+                break
+            # except Exception as e:
+            #     print(e.__traceback__.print)
+            #     print("Something went wrong with match #" + str(i - matchesRemoved) + " in " + str(self.eventName))
+            #     print("Deleting match from data, and moving on.")
+            #     allMatches.drop(i, axis=0)
+            #     matchesRemoved += 1
 
         return eventMatches
 
-    # def eventMatchesFormattedFromFile(self):
-    #     eventMatches = pd.read_json(path_or_buf="eventMatchesFormatted.json")
-    #     numOfMatches = len(eventMatches.index)
-    #     for i in range(0, numOfMatches):
-    #         temp = open("temp.txt", "w+")
-    #         blueAllianceJson = str(eventMatches.at[i, "Blue Alliance"])
-    #         print(blueAllianceJson)
-    #         temp.write(blueAllianceJson)
-    #         temp.close()
-    #
-    #         tempRead = open("temp.txt", "r")
-    #         blueAllianceStats = pd.read_json(tempRead.read(), typ="series")
-    #         print(blueAllianceStats)
-    #         tempRead.close()
-    #     print(eventMatches)
-    #     return eventMatches
 
     def numbersOnly(self, eventMatches):
         numOfMatches = len(eventMatches.index)
@@ -356,27 +347,3 @@ class DataCollectionAnalysis():
         labels = clean[1]
         labels = self.labelsToNums(labels)
         return [data, labels]
-
-
-# correctCount = 0
-# for s in range(0, len(eventMatches.index)):
-#     currentBlue = eventMatches.at[s, "Blue Alliance"]
-#     avgBlueAuton = (currentBlue.iat[0, 0] + currentBlue.iat[0, 1] + currentBlue.iat[0, 2])/3
-#     avgBlueTeleop = (currentBlue.iat[1, 0] + currentBlue.iat[1, 1] + currentBlue.iat[1, 2])/3
-#     avgBlueEndgame = (currentBlue.iat[2, 0] + currentBlue.iat[2, 1] + currentBlue.iat[2, 2])/3
-#     blueScore = avgBlueAuton + avgBlueTeleop + avgBlueEndgame
-#
-#     currentRed = eventMatches.at[s, "Red Alliance"]
-#     avgRedAuton = (currentRed.iat[0, 0] + currentRed.iat[0, 1] + currentRed.iat[0, 2])/3
-#     avgRedTeleop = (currentRed.iat[1, 0] + currentRed.iat[1, 1] + currentRed.iat[1, 2])/3
-#     avgRedEndgame = (currentRed.iat[2, 0] + currentRed.iat[2, 1] + currentRed.iat[2, 2])/3
-#     redScore = avgRedAuton + avgRedTeleop + avgBlueEndgame
-#
-#     winning_alliance = labels[s]
-#     if blueScore > redScore and winning_alliance == "blue":
-#         correctCount += 1
-#     elif redScore > blueScore and winning_alliance == "red":
-#         correctCount += 1
-#
-# correctPercent = correctCount/len(eventMatches.index)
-# print(correctPercent)
