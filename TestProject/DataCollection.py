@@ -100,6 +100,11 @@ class DataCollectionAnalysis():
                 if teamKey == redAllianceTeamKeys.get(0)[j]:
                     return {"allianceColor": "red", "teamAllianceNum": j + 1}
 
+    @staticmethod
+    def getAllianceScores(match):
+        scores = np.array([match['alliances']['blue.score'][0], match['alliances']['red.score'][0]])
+        return scores
+
     def calculateAutonScore(self, teamObject, teamKey):
         scoreBreakdown = teamObject.xs(key="score_breakdown", axis=1)
 
@@ -284,6 +289,7 @@ class DataCollectionAnalysis():
                     teamKey = redAllianceKeys[r]
                     tempTeamData = teamData.xs(key=teamKey, axis=0)
                     redAllianceStats[teamKey] = tempTeamData
+
                 winningAlliance = currentMatch["winning_alliance"]
 
                 eventMatches.at[i, "Blue Alliance"] = blueAllianceStats
@@ -302,6 +308,52 @@ class DataCollectionAnalysis():
 
         return eventMatches
 
+    def eventMatchesFormattedForScorePredict(self):
+        allMatches = self.getEventMatches(self.eventKey)
+        teamsFromEvent = self.getEventTeams(eventKey=self.eventKey)
+        teamData = self.calculateTeamData(teamsFromEvent=teamsFromEvent)
+
+        numOfMatches = len(allMatches.index)
+        eventMatches = pd.DataFrame(index=range(0, numOfMatches), columns=["Blue Alliance", "Red Alliance", "scores"])
+        for i in range(numOfMatches):
+            try:
+                currentMatch = allMatches.loc[i]
+
+                tempAlliances = pd.json_normalize(data=currentMatch["alliances"])
+                tempScoreBreakdown = pd.json_normalize(data=currentMatch["score_breakdown"])
+                currentMatch.at["alliances"] = tempAlliances
+                currentMatch.at["score_breakdown"] = tempScoreBreakdown
+                allianceInfo = self.getTeamAllianceInfo(currentMatch)
+
+                blueAllianceKeys = allianceInfo["blueAllianceKeys"]
+                blueAllianceStats = pd.DataFrame()
+                redAllianceKeys = allianceInfo["redAllianceKeys"]
+                redAllianceStats = pd.DataFrame()
+                for b in range(0, 3):
+                    teamKey = blueAllianceKeys[b]
+                    tempTeamData = teamData.xs(key=teamKey, axis=0)
+                    blueAllianceStats[teamKey] = tempTeamData
+                for r in range(0, 3):
+                    teamKey = redAllianceKeys[r]
+                    tempTeamData = teamData.xs(key=teamKey, axis=0)
+                    redAllianceStats[teamKey] = tempTeamData
+
+                scores = self.getAllianceScores(match=currentMatch)
+
+                eventMatches.at[i, "Blue Alliance"] = blueAllianceStats
+                eventMatches.at[i, "Red Alliance"] = redAllianceStats
+                eventMatches.at[i, "scores"] = scores
+
+            except IndexError:
+                print("Index out of bounds, skipping to end")
+                break
+            # except Exception as e:
+            #     print(e.__traceback__.print)
+            #     print("Something went wrong with match #" + str(i - matchesRemoved) + " in " + str(self.eventName))
+            #     print("Deleting match from data, and moving on.")
+            #     allMatches.drop(i, axis=0)
+            #     matchesRemoved += 1
+        return eventMatches
 
     def numbersOnly(self, eventMatches):
         numOfMatches = len(eventMatches.index)
@@ -346,4 +398,11 @@ class DataCollectionAnalysis():
         data = clean[0]
         labels = clean[1]
         labels = self.labelsToNums(labels)
+        return [data, labels]
+
+    def getDataAndLabelsForScorePredict(self):
+        data = self.eventMatchesFormattedForScorePredict()
+        labels = data.pop("scores").to_numpy()
+        data = self.numbersOnly(data)
+        data = np.array(data)
         return [data, labels]
