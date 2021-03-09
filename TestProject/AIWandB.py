@@ -38,21 +38,22 @@ def fixFormatLabels(y):
     y = np.reshape(y, (-1, 2))
     return y
 
+
 gotInput = False
 scoresOrWin = ''
 while not gotInput:
-    # fileOrAPI = input("Load from Files or API (f/a)?")
-    fileOrAPI = 'f'
-    # scoresOrWin = input("Predict scores, or Winners (s/w)?")
-    scoresOrWin = 's'
+    fileOrAPI = input("\nLoad from Files or API (f/a)?")
+    scoresOrWin = input("\nPredict scores, or Winners (s/w)?")
+    # fileOrAPI = 'f'
+    # scoresOrWin = 's'
     if scoresOrWin != 's' and scoresOrWin != 'w':
         print("Invalid Input. Please Try again")
         gotInput = False
         continue
     if fileOrAPI == "a":
         print("\nLoading data from The Blue Alliance API, then saving it to local files. This may take a while...")
-        # Kettering #1 and Southfield doesnt work, JSON is bad in API.
-        events = ["NE District Granite State Event", "Great Northern Regional", "FNC District Wake County Event",
+        # Kettering #1, Southfield, and Great Northern Regional doesnt work, missing Data for them in JSON files.
+        events = ["NE District Granite State Event", "FNC District Wake County Event",
                   "Regional Monterrey", "Greater Kansas City Regional", "ISR District Event #1", "ISR District Event #2",
                   "PCH District Gainesville Event presented by Automation Direct", "NE District Northern CT Event",
                   "Los Angeles North Regional", "FIM District Traverse City Event", "FIM District St. Joseph Event",
@@ -93,9 +94,9 @@ while not gotInput:
         print("Invalid Input. Please Try again")
 
 
-def makeModelWins(numOfLayers, numOfNeurons, neuronDecay, constantNeurons, batchNorm, dropout, dropoutRate):
+def makeModelWandB(numOfLayers, numOfNeurons, neuronDecay, constantNeurons, batchNorm, dropout, dropoutRate):
     model = tf.keras.Sequential()
-    model.add(tf.keras.Input(shape=(2, 9)))
+    model.add(tf.keras.Input(shape=(2, 12)))
     # model.add(tf.keras.layers.Dense(10, activation='relu'))
     # model.add(tf.keras.layers.Dense(8, activation='relu'))
     # model.add(tf.keras.layers.Flatten())
@@ -126,7 +127,7 @@ def handMadeModel():
     #     tf.keras.layers.Dense(1, activation='sigmoid')
     # ])
     model = tf.keras.Sequential([
-        tf.keras.Input(shape=(2, 9)),
+        tf.keras.Input(shape=(2, 12)),
         tf.keras.layers.Dense(12, activation='relu'),
         tf.keras.layers.Flatten(),
         tf.keras.layers.Dense(8, activation='relu'),
@@ -180,7 +181,7 @@ configs = {
 run = wandb.init(project='2020MatchPredictor', config=configs)
 config = wandb.config
 
-model = makeModelWins(config.layers, config.neurons, config.neuron_decay, config.constant_neurons, config.batch_norm,
+model = makeModelWandB(config.layers, config.neurons, config.neuron_decay, config.constant_neurons, config.batch_norm,
                   config.dropout, config.dropout_rate)
 # model = handMadeModel()
 
@@ -192,9 +193,9 @@ if scoresOrWin == 'w':
                   metrics=['accuracy'])
                     # metrics=[tf.keras.metrics.BinaryAccuracy()])
 else:
-    model.compile(loss='mean_absolute_error',
+    model.compile(loss='mean_squared_error',
                   optimizer=opt,
-                  metrics=['mean_absolute_error'])
+                  metrics=['mean_squared_error'])
 # history = model.fit(x_train, y_train, epochs=epochs, batch_size=32, validation_split=0.2)
 history = {}
 if scoresOrWin == 'w':
@@ -242,16 +243,16 @@ print("\nEvaluate on test data")
 results = model.evaluate(x_test, y_test)
 print("test loss, test acc:", results)
 
-# loss_train = history['loss']
-# loss_val = history['val_loss']
-# epochs = range(1, epochs+1)
-# plt.plot(epochs, loss_train, 'g', label='Training loss')
-# plt.plot(epochs, loss_val, 'b', label='Validation loss')
-# plt.title('Training and Validation loss')
-# plt.xlabel('Epochs')
-# plt.ylabel('Loss')
-# plt.legend()
-# plt.show()
+loss_train = history['loss']
+loss_val = history['val_loss']
+epochs = range(1, epochs+1)
+plt.plot(epochs, loss_train, 'g', label='Training loss')
+plt.plot(epochs, loss_val, 'b', label='Validation loss')
+plt.title('Training and Validation loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+plt.show()
 
 if scoresOrWin == 's':
     accuracy = modelPredict(model)

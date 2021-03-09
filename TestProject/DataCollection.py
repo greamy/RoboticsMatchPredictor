@@ -1,9 +1,4 @@
-import math
-
-from IPython import display
-from matplotlib import cm
-from matplotlib import gridspec
-from matplotlib import pyplot as plt
+import math 
 import numpy as np
 from sklearn import metrics
 import pandas as pd
@@ -21,6 +16,7 @@ class DataCollectionAnalysis():
         self.link = "https://www.thebluealliance.com/api/v3/"
         self.eventName = event
         self.eventKey = self.getEventKey()
+        self.eventRankings = self.getEventRankings()
 
     def getTeamKey(self, teamNumber):
 
@@ -205,6 +201,30 @@ class DataCollectionAnalysis():
         endgameScore = ((5.*percentParked) + (25.*percentHanging) + (15.*percentLevel))
         return endgameScore
 
+    # def getDistrictKey(self, teamKey):
+    #     districtsJson = requests.get(url=(self.link + "team/" + teamKey + "/districts"), headers=self.headers)
+    #     districtsData = pd.read_json(path_or_buf=districtsJson.text, typ="frame", convert_dates=False)
+    #     print(districtsData)
+    #     return districtsData.iat[len(districtsData.index)-2, 2]
+    #     # The -2 is to get 2019 district of given team (-3 would be 2018, etc.)
+    #     # The , 2] is to get the district key, rather than name or some other info.
+
+    def getEventRankings(self):
+        rankingsJson = requests.get(url=(self.link + "event/" + self.eventKey + "/rankings"), headers=self.headers)
+        rankingsData = rankingsJson.json() # response object has .json() function, which puts the plaintext into actual
+        # python objects (lists, dicts, etc)
+        rankingsData = pd.DataFrame(data=rankingsData['rankings'])
+        # formatting dataFrame for easy iteration
+        rankingsData = pd.DataFrame(data={'team_key': rankingsData['team_key']})
+        return rankingsData
+
+    def getTeamEventRank(self, teamKey):
+        # loops through the rankings for the event, and the index of each team within the list is their rank.
+        for count, value in enumerate(self.eventRankings['team_key']):
+            if value == teamKey:
+                return count
+        return -1
+
     def getEventKey(self):
         foundKey = False
         eventKey = ""
@@ -212,7 +232,6 @@ class DataCollectionAnalysis():
         eventsData = pd.read_json(path_or_buf=eventsJson.text, typ="frame", convert_dates=False)
         numOfEvents = len(eventsData.index)
         for i in range(0, numOfEvents):
-
             if eventsData.xs(key="name", axis=1).iat[i] == self.eventName:
                 eventKey = eventsData.xs(key="key", axis=1).iat[i]
                 foundKey = True
@@ -246,11 +265,12 @@ class DataCollectionAnalysis():
             if type(teamObject) == int:
                 print("team " + str(teamKey) + " had an error")
                 continue
-            teamAutonScore = self.calculateAutonScore(teamObject=teamObject, teamKey=teamKey)
-            teamTeleopScore = self.calculateTeleopScore(teamObject=teamObject, teamKey=teamKey)
-            teamEndgameScore = self.calculateEndgameScore(teamObject=teamObject, teamKey=teamKey)
-            seriesData = [teamAutonScore, teamTeleopScore, teamEndgameScore]
-            finalSeries = pd.Series(data=seriesData, index=["autonScore", "teleopScore", "endgameScore"])
+            autonScore = self.calculateAutonScore(teamObject=teamObject, teamKey=teamKey)
+            teleopScore = self.calculateTeleopScore(teamObject=teamObject, teamKey=teamKey)
+            endgameScore = self.calculateEndgameScore(teamObject=teamObject, teamKey=teamKey)
+            eventRank = self.getTeamEventRank(teamKey=teamKey)
+            seriesData = [autonScore, teleopScore, endgameScore, eventRank]
+            finalSeries = pd.Series(data=seriesData, index=["autonScore", "teleopScore", "endgameScore", "eventRank"])
             # print("Calculated Team Data for: " + str(teamKey))
             fullDataFrame[teamKey] = finalSeries
         return fullDataFrame.transpose()
@@ -260,6 +280,8 @@ class DataCollectionAnalysis():
         matchData = pd.read_json(path_or_buf=matchJson.text, typ="frame", convert_dates=False)
         return matchData
 
+    # this function gets all the matches of the event and brings it all into a numpy array for reading into AI.
+    # This should be called for use of binary classification algorithm, classifying blue or red win.
     def eventMatchesFormatted(self):
         allMatches = self.getEventMatches(self.eventKey)
         teamsFromEvent = self.getEventTeams(eventKey=self.eventKey)
@@ -308,6 +330,8 @@ class DataCollectionAnalysis():
 
         return eventMatches
 
+    # this function gets all the matches of the event and brings it all into a numpy array for reading into AI.
+    # This should be called for use of regression model, which should attempt to predict real scores for each match.
     def eventMatchesFormattedForScorePredict(self):
         allMatches = self.getEventMatches(self.eventKey)
         teamsFromEvent = self.getEventTeams(eventKey=self.eventKey)
@@ -329,6 +353,8 @@ class DataCollectionAnalysis():
                 blueAllianceStats = pd.DataFrame()
                 redAllianceKeys = allianceInfo["redAllianceKeys"]
                 redAllianceStats = pd.DataFrame()
+
+                # these for loops split the teamData into separate alliances and separate teams.
                 for b in range(0, 3):
                     teamKey = blueAllianceKeys[b]
                     tempTeamData = teamData.xs(key=teamKey, axis=0)
@@ -338,11 +364,14 @@ class DataCollectionAnalysis():
                     tempTeamData = teamData.xs(key=teamKey, axis=0)
                     redAllianceStats[teamKey] = tempTeamData
 
+                # this is the actual scores for each match
                 scores = self.getAllianceScores(match=currentMatch)
 
                 eventMatches.at[i, "Blue Alliance"] = blueAllianceStats
                 eventMatches.at[i, "Red Alliance"] = redAllianceStats
                 eventMatches.at[i, "scores"] = scores
+                # eventMatches.at[i, "eventRank"] =
+                # test = self
 
             except IndexError:
                 print("Index out of bounds, skipping to end")
@@ -357,8 +386,10 @@ class DataCollectionAnalysis():
 
     def numbersOnly(self, eventMatches):
         numOfMatches = len(eventMatches.index)
-        # Creates Array with 0's, with enough spaces to hole each score.
-        numberList = [[[0 for x in range(9)], [0 for x in range(9)]] for x in range(numOfMatches)]
+        # Creates Array with 0's, with enough spaces to hold each score.
+        # shape=(12, 2, numMatches), 12 is because 4 stats x 3 teams (auton, teleop, endgame scores, and Event Rank),
+        # 2 because 2 alliances, and then each match is a separate entry
+        numberList = [[[0 for x in range(12)], [0 for x in range(12)]] for x in range(numOfMatches)]
         for i in range(numOfMatches):
             xsize = len(eventMatches.at[i, "Blue Alliance"].index)
             ysize = len(eventMatches.at[i, "Blue Alliance"].columns)
