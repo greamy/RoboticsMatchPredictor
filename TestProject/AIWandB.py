@@ -96,7 +96,9 @@ while not gotInput:
 
 def makeModelWandB(numOfLayers, numOfNeurons, neuronDecay, constantNeurons, batchNorm, dropout, dropoutRate):
     model = tf.keras.Sequential()
-    model.add(tf.keras.Input(shape=(2, 12)))
+    model.add(tf.keras.Input(shape=(2, 15)))
+    model.add(tf.keras.layers.BatchNormalization())
+
     # model.add(tf.keras.layers.Dense(10, activation='relu'))
     # model.add(tf.keras.layers.Dense(8, activation='relu'))
     # model.add(tf.keras.layers.Flatten())
@@ -127,7 +129,7 @@ def handMadeModel():
     #     tf.keras.layers.Dense(1, activation='sigmoid')
     # ])
     model = tf.keras.Sequential([
-        tf.keras.Input(shape=(2, 12)),
+        tf.keras.Input(shape=(2, 15)),
         tf.keras.layers.Dense(12, activation='relu'),
         tf.keras.layers.Flatten(),
         tf.keras.layers.Dense(8, activation='relu'),
@@ -167,9 +169,9 @@ def modelPredict(model):
 
 wandb.login()
 configs = {
-    "learning_rate": 0.0005,
-    "epochs": 100,
-    "batch_size": 80,
+    "learning_rate": 0.0001,
+    "epochs": 500,
+    "batch_size": 40,
     'layers': 4,
     'neurons': 30,
     'neuron_decay': 0.8297,
