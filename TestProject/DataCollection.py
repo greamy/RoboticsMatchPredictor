@@ -9,7 +9,8 @@ class DataCollectionAnalysis():
     pd.options.display.max_rows = 10
     pd.options.display.float_format = '{:.1f}'.format
 
-    def __init__(self, event):
+    def __init__(self, event, scorePredict):
+        self.scorePredict = scorePredict
         # Needed for API Security
         self.headers = {'X-TBA-Auth-Key': 'uGgrrwF5M7RwNn2JmRr9UHFWw9gkYPevgzzWhF8VLequIboEbd5zcUvmPc800uHB'}
         # Base TBA API Link, so I don't have to retype it over and over
@@ -17,6 +18,7 @@ class DataCollectionAnalysis():
         self.eventName = event
         self.eventKey = self.getEventKey()
         self.eventRankings = self.getEventRankings()
+        self.allData = self.getAllData()
 
     # Function returns the 'key' for a team number. There is code to pull it from TheBlueAllianceAPI, but each key
     # is just the number with frc in front of it, simplifying like this vastly reduces time.
@@ -232,12 +234,16 @@ class DataCollectionAnalysis():
             fullDataFrame[teamKey] = finalSeries
         return fullDataFrame.transpose()
 
-    def calculateAccTeamData(self, teamsFromEvent):
+    def getAccTeamData(self):
         rankingsJson = requests.get(url=(self.link + "event/" + self.eventKey + "/rankings"), headers=self.headers)
         allData = rankingsJson.json()  # response object has .json() function, which puts the plaintext into actual
         # python objects (lists, dicts, etc)
         allData = pd.DataFrame(data=allData['rankings'])
         filteredData = pd.DataFrame(data={'scores': allData['sort_orders'], 'team_key': allData['team_key']})
+        return filteredData
+
+    def calculateAccTeamData(self, teamsFromEvent):
+        filteredData = self.getAccTeamData()
 
         numOfTeams = len(teamsFromEvent.index)
         fullDataFrame = pd.DataFrame()
@@ -495,3 +501,11 @@ class DataCollectionAnalysis():
         data = self.numbersOnly(data)
         data = np.array(data)
         return [data, labels]
+
+    def getAllData(self):
+        if not self.scorePredict:
+            full = self.getDataAndLabels()
+        else:
+            full = self.getDataAndLabelsForScorePredict()
+        print(self.eventName + " EVENT RETRIEVED")
+        return [full[0], full[1]]
