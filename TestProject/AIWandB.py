@@ -11,6 +11,7 @@ import wandb
 
 
 # Returns labels and data in numpyArrays, and data has been cleaned of missing info.
+# Can be used for many events because eventsToGet should be array.
 def getAllData(eventsToGet, scorePredict):
     allData = np.array([])
     allLabels = np.array([])
@@ -26,6 +27,9 @@ def getAllData(eventsToGet, scorePredict):
     return [allData, allLabels]
 
 
+# Reformats labels for use in the model.
+# y = array of labels
+# Returns: np Array of labels
 def fixFormatLabels(y):
     newArray = np.array([[]])
     for i in range(len(y)):
@@ -92,6 +96,8 @@ while not gotInput:
         print("Invalid Input. Please Try again")
 
 
+# Uses the model.predict() function on prediction data to test accuracy of model. This is called after training.
+# model = trained tf.keras.Model
 def modelPredict(model):
     try:
         x_predict = np.load('data/x_predict.npy')
@@ -123,7 +129,7 @@ def modelPredict(model):
 wandb.login()
 configs = {
     "learning_rate": 0.0001,
-    "epochs": 100,
+    "epochs": 500,
     "batch_size": 40,
     'layers': 4,
     'neurons': 30,
@@ -218,24 +224,13 @@ if scoresOrWin == 's':
                              str(config["batch_size"]) + "," + str(config["layers"]) + "," + str(config["neurons"]) + "," +
                              str(config["neuron_decay"]) + "," + str(config["constant_neurons"]) + "," +
                              str(config["batch_norm"]) + "," + str(config["dropout"]) + "," + str(config["dropout_rate"])
-                             + ",")
+                             + ",\n")
+
         finally:
             accFile.close()
             parameters.close()
 
-# configs = {
-#     "learning_rate": 0.0001,
-#     "epochs": 500,
-#     "batch_size": 40,
-#     'layers': 4,
-#     'neurons': 30,
-#     'neuron_decay': 0.8297,
-#     'constant_neurons': True,
-#     'batch_norm': False,
-#     'dropout': True,
-#     'dropout_rate': 0.2319
-#     }
-
+# Prints out graph of loss over time after training and validation.
 loss_train = history['loss']
 loss_val = history['val_loss']
 epochs = range(1, epochs+1)

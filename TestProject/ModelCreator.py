@@ -11,6 +11,8 @@ class ModelCreator:
         self.dropout = dropout
         self.dropoutRate = dropoutRate
 
+    # This function is designed to be used with the program 'W and B, (weights and biases), and model to be changed
+    # between runs.
     def makeModelWandB(self):
         model = tf.keras.Sequential()
         model.add(tf.keras.Input(shape=(2, 15)))
@@ -37,6 +39,7 @@ class ModelCreator:
         # print(model.summary())
         return model
 
+    # This is a static model, with each property hard-coded, but makes for better consistency.
     @staticmethod
     def handMadeModel():
         # model = tf.keras.Sequential([

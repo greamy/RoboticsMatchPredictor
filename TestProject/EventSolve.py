@@ -3,8 +3,11 @@ from TestProject.DataCollection import DataCollectionAnalysis
 from TestProject.ModelCreator import ModelCreator
 import pandas as pd
 import numpy as np
+import keyboard
 
-class EventSolve():
+
+class EventSolve:
+
     def __init__(self, model, dataCollector, teamData, targetTeam):
         self.model = model
         self.collector = dataCollector
@@ -13,49 +16,82 @@ class EventSolve():
         self.numTeams = len(self.teams.index)
         self.teamData = self.formatTeamData(teamData)
         self.targetTeam = "frc" + targetTeam
+        self.targetTeamIndex = self.getTeamIndex(self.targetTeam)
         self.blue2Index = 0
         self.blue3Index = 0
+        self.performance = [0 for x in range(self.numTeams)]
+        self.scores = [[] for y in range(self.numTeams)]
+        self.done = False
 
+    # Continuously loops through possible alliance combination and makes predictions to find best team in the event
     def search(self):
-        while True:
+        while not self.done:
             red = self.genRedAlliance()
             blue = self.genBlueAlliance()
             alliances = self.combineAlliances(blue, red)
-            print(alliances)
+            # print(alliances)
             allianceData = self.getAlliancesData(alliances)
-            print(model.predict(allianceData))
-            break
+            prediction = model(allianceData, training=False).numpy()
+            prediction = np.reshape(prediction, newshape=2)
+            # print(prediction)
+            self.updateScores(prediction[0])
+            try:
+                if keyboard.is_pressed('q'):
+                    break
+            except:
+                continue
+            # keyboard.add_hotkey('shift+q', self.done)
 
+    def done(self):
+        print("done!")
+        self.done = True
+
+    # Opposing alliance doesn't need to be optimized, so this creates random teams to fight. Also checks for duplicates
+    # Doesn't check for duplicates from the blue side, because it is better to fight every team (including yourself)
     def genRedAlliance(self):
         numTeams = len(self.teams)
-        red1 = random.randint(0, numTeams)
-        red2 = random.randint(0, numTeams)
-        red3 = random.randint(0, numTeams)
+        red1 = random.randint(0, numTeams-1)
+        red2 = random.randint(0, numTeams-1)
+        red3 = random.randint(0, numTeams-1)
         if (red1 == red2) or (red1 == red3) or (red2 == red3):
             return self.genRedAlliance()
         red = [self.teams[red1], self.teams[red2], self.teams[red3]]
         return red
 
+    #  Called every loop, and loops through the list of teams, skipping targetTeam and ensuring no duplicates.
     def genBlueAlliance(self):
         self.blue3Index += 1
-        if self.blue3Index >= self.numTeams:
+
+        if self.blue3Index >= self.numTeams-1:  # Checks if we ran through the final position, then moves 2nd one up
             self.blue3Index = 0
             self.blue2Index += 1
-        if self.blue2Index == self.blue3Index:
-            self.blue3Index += 1
+        if self.blue2Index >= self.numTeams-1:  # Checks if we've done every combo of blue alliance, and resets if so.
+            self.blue2Index = 0
+            self.blue3Index = 1
+            self.updatePerformances()
+            self.output()
 
-        if self.teams[self.blue2Index] == self.targetTeam:
-            self.blue2Index += 1
-        elif self.teams[self.blue3Index] == self.targetTeam:
-            self.blue3Index += 1
+        self.checkDuplicates()
+
         return [self.targetTeam, self.teams[self.blue2Index], self.teams[self.blue3Index]]
 
-    def combineAlliances(self, blue, red):
+    def checkDuplicates(self):
+        if self.blue2Index == self.targetTeamIndex:  # These ifs are to check for duplicate teams.
+            self.blue2Index += 1
+        elif self.blue3Index == self.targetTeamIndex:
+            self.blue3Index += 1
+        if self.blue2Index == self.blue3Index:  # ensures that 2 and 3 are not the same team
+            self.blue3Index += 1
+            self.checkDuplicates()
+    #  Simple helper function to combine arrays for the alliances.
+    @staticmethod
+    def combineAlliances(blue, red):
         blue.append(red[0])
         blue.append(red[1])
         blue.append(red[2])
         return blue
 
+    #  This is called in __init__, just to reformat the data into a better format.
     def formatTeamData(self, teamData):
         # print(teamData)
         # print(self.teams)
@@ -78,6 +114,7 @@ class EventSolve():
             fullDataFrame[team] = finalSeries
         return fullDataFrame.transpose()
 
+    #  This gets data for each time in a given set of alliances and puts into a single array, to be fed into the model.
     def getAlliancesData(self, alliances):
         blueAlliance = []
         redAlliance = []
@@ -97,17 +134,45 @@ class EventSolve():
         allianceData = np.reshape(allianceData, newshape=(-1, 2, 15))
         return allianceData
 
+    def updateScores(self, score):
+        self.scores[self.blue2Index].append(score)
+        self.scores[self.blue3Index].append(score)
+
+    # Updates the performance array, by using a rolling average of the scores teams achieved.
+    def updatePerformances(self):
+        for index, team in enumerate(self.scores):
+            if index == self.targetTeamIndex:  # Don't care about performance of target Team.
+                continue
+            avg = 0
+            for score in team:
+                avg += score
+            avg /= len(team)
+            self.performance[index] = avg
+
+    def output(self):
+        print(self.performance)
+        print(np.argmax(self.performance))
+        bestIndex = np.argmax(self.performance)
+        bestTeam = self.teams[bestIndex]
+        print(bestTeam)
+
+    def getTeamIndex(self, targetTeam):
+        for id, team in enumerate(self.teams):
+            if team == targetTeam:
+                return id
+
 
 # event = input("Please enter the official name of the event")
 event = "FIM District Milford Event"
 # team = input("Please enter your team number.")
-team = "1076"
+# team = "1076"
+team = "67"
 
 with open("savedModels/best_model/hyperparameters.txt", 'r') as reader:
     parameters = reader.readline()
 buildStr = ""
 converted = []
-for element in parameters:
+for element in parameters:  # Reads hyper parameters from text file and puts them into array.
     if element == ',':
         try:
             converted.append(float(buildStr))
@@ -120,7 +185,7 @@ for element in parameters:
             continue
         finally:
             buildStr = ""
-    buildStr += element
+    buildStr += element  #
 
 collector = DataCollectionAnalysis(event, True)
 creator = ModelCreator(converted[3], converted[4], converted[5], converted[6], converted[7], converted[8], converted[9])
