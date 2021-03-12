@@ -1,6 +1,4 @@
-import math 
 import numpy as np
-from sklearn import metrics
 import pandas as pd
 import requests
 
@@ -278,9 +276,12 @@ class DataCollectionAnalysis():
 
     # This returns a DataFrame (probably should be series) with each team at the index of the rank within the event.
     def getEventRankings(self):
-        rankingsJson = requests.get(url=(self.link + "event/" + self.eventKey + "/rankings"), headers=self.headers)
-        rankingsData = rankingsJson.json() # response object has .json() function, which puts the plaintext into actual
+        # print(type(self.link + "event/" + self.eventKey + "/rankings"))
+        # print(type(self.headers))
+        rankingsJson = requests.get(url=(str(self.link) + "event/" + str(self.eventKey) + "/rankings"), headers=self.headers)
+        rankingsData = rankingsJson.json()  # response object has .json() function, which puts the plaintext into actual
         # python objects (lists, dicts, etc)
+        print(rankingsData)
         rankingsData = pd.DataFrame(data=rankingsData['rankings'])
         # formatting dataFrame for easy iteration
         rankingsData = pd.DataFrame(data={'team_key': rankingsData['team_key']})

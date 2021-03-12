@@ -211,15 +211,15 @@ if scoresOrWin == 's':
     accuracy = modelPredict(model)
     print("ACCURACY: " + str(accuracy))
 
-    with open("savedModels/bestAcc.txt", 'r') as reader:
-        acc = float(reader.read())
-    if accuracy >= acc:
-        print("Found new Best ACC, saving model!")
-        accFile = open("savedModels/bestAcc.txt", 'w')
+    with open("savedModels/bestLoss.txt", 'r') as reader:
+        loss = float(reader.readline())
+    if results[0] <= loss:
+        print("Found new Lowest Loss, saving model!")
+        lossFile = open("savedModels/bestLoss.txt", 'w')
         parameters = open(checkpoint_path + "/hyperparameters.txt", 'w')
         try:
             model.save_weights(checkpoint_path + "/cp.ckpt")
-            accFile.write(str(accuracy))
+            lossFile.write(str(results[0]))
             parameters.write(str(config["learning_rate"]) + "," + str(config["epochs"]) + "," +
                              str(config["batch_size"]) + "," + str(config["layers"]) + "," + str(config["neurons"]) + "," +
                              str(config["neuron_decay"]) + "," + str(config["constant_neurons"]) + "," +
@@ -227,7 +227,7 @@ if scoresOrWin == 's':
                              + ",\n")
 
         finally:
-            accFile.close()
+            lossFile.close()
             parameters.close()
 
 # Prints out graph of loss over time after training and validation.

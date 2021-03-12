@@ -1,9 +1,9 @@
 import random
-from TestProject.DataCollection import DataCollectionAnalysis
-from TestProject.ModelCreator import ModelCreator
+from . import DataCollection
+from . import ModelCreator
 import pandas as pd
 import numpy as np
-import keyboard
+# import keyboard
 
 
 class EventSolve:
@@ -22,6 +22,7 @@ class EventSolve:
         self.performance = [0 for x in range(self.numTeams)]
         self.scores = [[] for y in range(self.numTeams)]
         self.done = False
+        self.count = 0
 
     # Continuously loops through possible alliance combination and makes predictions to find best team in the event
     def search(self):
@@ -31,18 +32,22 @@ class EventSolve:
             alliances = self.combineAlliances(blue, red)
             # print(alliances)
             allianceData = self.getAlliancesData(alliances)
-            prediction = model(allianceData, training=False).numpy()
+            prediction = self.model(allianceData, training=False).numpy()
             prediction = np.reshape(prediction, newshape=2)
             # print(prediction)
             self.updateScores(prediction[0])
-            try:
-                if keyboard.is_pressed('q'):
-                    break
-            except:
-                continue
+            # try:
+            #     if keyboard.is_pressed('q'):
+            #         break
+            # except:
+            #     continue
+            if self.count >= 10:
+                break
+            # self.setDone()
             # keyboard.add_hotkey('shift+q', self.done)
+        return self.output()
 
-    def done(self):
+    def setDone(self):
         print("done!")
         self.done = True
 
@@ -68,6 +73,7 @@ class EventSolve:
         if self.blue2Index >= self.numTeams-1:  # Checks if we've done every combo of blue alliance, and resets if so.
             self.blue2Index = 0
             self.blue3Index = 1
+            self.count += 1
             self.updatePerformances()
             self.output()
 
@@ -155,6 +161,7 @@ class EventSolve:
         bestIndex = np.argmax(self.performance)
         bestTeam = self.teams[bestIndex]
         print(bestTeam)
+        return bestTeam
 
     def getTeamIndex(self, targetTeam):
         for id, team in enumerate(self.teams):
@@ -162,34 +169,45 @@ class EventSolve:
                 return id
 
 
-# event = input("Please enter the official name of the event")
-event = "FIM District Milford Event"
-# team = input("Please enter your team number.")
-# team = "1076"
-team = "67"
+def getTeams(event):
+    collector = DataCollection.DataCollectionAnalysis(event, True)
+    # print(np.array(collector.getAccTeamData()['team_key']))
+    return [np.array(collector.getAccTeamData()['team_key']), collector]
 
-with open("savedModels/best_model/hyperparameters.txt", 'r') as reader:
-    parameters = reader.readline()
-buildStr = ""
-converted = []
-for element in parameters:  # Reads hyper parameters from text file and puts them into array.
-    if element == ',':
-        try:
-            converted.append(float(buildStr))
-            continue
-        except:
-            if buildStr == "True":
-                converted.append(True)
-            elif buildStr == "False":
-                converted.append(False)
-            continue
-        finally:
-            buildStr = ""
-    buildStr += element  #
 
-collector = DataCollectionAnalysis(event, True)
-creator = ModelCreator(converted[3], converted[4], converted[5], converted[6], converted[7], converted[8], converted[9])
-model = creator.makeModelWandB()
-model.load_weights("savedModels/best_model/cp.ckpt")
-solver = EventSolve(model=model, dataCollector=collector, teamData=collector.getAccTeamData(), targetTeam=team)
-solver.search()
+def start(collector, team):
+    # event = input("Please enter the official name of the event")
+    # event = "FIM District Milford Event"
+    # team = input("Please enter your team number.")
+    # team = "1076"
+    # team = "67"
+
+    with open("/savedModels/best_model/hyperparameters.txt", 'r') as reader:
+        parameters = reader.readline()
+    buildStr = ""
+    converted = []
+    for element in parameters:  # Reads hyper parameters from text file and puts them into array.
+        if element == ',':
+            try:
+                converted.append(float(buildStr))
+                continue
+            except:
+                if buildStr == "True":
+                    converted.append(True)
+                elif buildStr == "False":
+                    converted.append(False)
+                continue
+            finally:
+                buildStr = ""
+        buildStr += element  #
+
+    # collector = DataCollectionAnalysis(event, True)
+    creator = ModelCreator(converted[3], converted[4], converted[5], converted[6], converted[7], converted[8], converted[9])
+    model = creator.makeModelWandB()
+    model.load_weights("/savedModels/best_model/cp.ckpt").expect_partial()
+    solver = EventSolve(model=model, dataCollector=collector, teamData=collector.getAccTeamData(), targetTeam=team)
+    solver.search()
+
+
+# start()
+# getTeams("FIM District Milford Event")
