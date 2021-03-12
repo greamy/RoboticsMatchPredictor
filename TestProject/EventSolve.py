@@ -171,18 +171,23 @@ class EventSolve:
 
 def getTeams(event):
     collector = DataCollection.DataCollectionAnalysis(event, True)
-    # print(np.array(collector.getAccTeamData()['team_key']))
-    return [np.array(collector.getAccTeamData()['team_key']), collector]
+    teams = np.array(collector.getAccTeamData()['team_key'])
+    for index, team in enumerate(teams):
+        teams[index] = team[3:]
+    teams = np.sort(teams)
+    return teams
 
 
-def start(collector, team):
+def start(event, team):
     # event = input("Please enter the official name of the event")
     # event = "FIM District Milford Event"
     # team = input("Please enter your team number.")
     # team = "1076"
     # team = "67"
 
-    with open("/savedModels/best_model/hyperparameters.txt", 'r') as reader:
+    # with open("savedModels/best_model/hyperparameters.txt", 'r') as reader:
+    path = "/home/g/r/greamy/djangoStuff/predictor/frcEventSolver/savedModels/best_model/"
+    with open(path + "hyperparameters.txt") as reader:
         parameters = reader.readline()
     buildStr = ""
     converted = []
@@ -201,12 +206,13 @@ def start(collector, team):
                 buildStr = ""
         buildStr += element  #
 
-    # collector = DataCollectionAnalysis(event, True)
-    creator = ModelCreator(converted[3], converted[4], converted[5], converted[6], converted[7], converted[8], converted[9])
+    collector = DataCollection.DataCollectionAnalysis(event, True)
+    creator = ModelCreator.ModelCreator(converted[3], converted[4], converted[5], converted[6], converted[7], converted[8], converted[9])
     model = creator.makeModelWandB()
-    model.load_weights("/savedModels/best_model/cp.ckpt").expect_partial()
+    # model.load_weights("savedModels/best_model/cp.ckpt").expect_partial()
+    model.load_weights(path + "cp.ckpt").expect_partial()
     solver = EventSolve(model=model, dataCollector=collector, teamData=collector.getAccTeamData(), targetTeam=team)
-    solver.search()
+    return solver.search()
 
 
 # start()

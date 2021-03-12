@@ -128,15 +128,15 @@ def modelPredict(model):
 
 wandb.login()
 configs = {
-    "learning_rate": 0.0001,
-    "epochs": 500,
+    "learning_rate": 0.0005,
+    "epochs": 100,
     "batch_size": 40,
-    'layers': 4,
-    'neurons': 30,
-    'neuron_decay': 0.8297,
-    'constant_neurons': True,
+    'layers': 3,
+    'neurons': 32,
+    'neuron_decay': 0.75,
+    'constant_neurons': False,
     'batch_norm': False,
-    'dropout': True,
+    'dropout': False,
     'dropout_rate': 0.2319
     }
 run = wandb.init(project='2020MatchPredictor', config=configs)
