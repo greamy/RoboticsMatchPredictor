@@ -205,7 +205,7 @@ def getTeams(event):
     return teams
 
 
-def start(event, team, year):
+def start(event, team, year="2020"):
     # event = input("Please enter the official name of the event")
     # event = "FIM District Milford Event"
     # team = input("Please enter your team number.")
