@@ -1,6 +1,8 @@
 import random
-from . import DataCollection
-from . import ModelCreator
+# from . import DataCollection
+# from . import ModelCreator
+from TestProject import DataCollection
+from TestProject import ModelCreator
 import pandas as pd
 import numpy as np
 # import keyboard
@@ -13,13 +15,14 @@ class EventSolve:
         self.collector = dataCollector
         self.teamData = teamData
         self.teams = teamData['team_key']
-        self.numTeams = len(self.teams.index)
+        self.numTeams = len(self.teams)
         self.teamData = self.formatTeamData(teamData)
         self.targetTeam = "frc" + targetTeam
         self.targetTeamIndex = self.getTeamIndex(self.targetTeam)
         self.blue2Index = 0
         self.blue3Index = 0
-        self.performance = [0 for x in range(self.numTeams)]
+        # self.performance = [0 for x in range(self.numTeams)]
+        self.initPerformance()
         self.scores = [[] for y in range(self.numTeams)]
         self.done = False
         self.count = 0
@@ -153,32 +156,56 @@ class EventSolve:
             for score in team:
                 avg += score
             avg /= len(team)
-            self.performance[index] = avg
+            self.performance[self.teams[index]] = avg
+        self.sortPerform()
+
+    def sortPerform(self):
+        sorted_values = sorted(self.performance.values(), reverse=True)  # Sort the values (True is to sort descending)
+        sorted_dict = {}
+        for i in sorted_values:
+            for k in self.performance.keys():
+                if self.performance[k] == i:
+                    sorted_dict[k] = self.performance[k]
+                    break
+        self.performance = sorted_dict
 
     def output(self):
-        print(self.performance)
-        print(np.argmax(self.performance))
-        bestIndex = np.argmax(self.performance)
-        bestTeam = self.teams[bestIndex]
-        print(bestTeam)
-        return bestTeam
+        topKeys = list(self.performance.keys())[:5]
+        for index, key in enumerate(topKeys):
+            topKeys[index] = key[3:]
+        topValues = list(self.performance.values())[:5]
+        for index, value in enumerate(topValues):
+            topValues[index] = str(value)
+        topKeys = "#".join(topKeys)
+        topValues = "#".join(topValues)
+        tops = " ".join([topKeys, topValues])
+        print(tops)
+        return [tops]
 
     def getTeamIndex(self, targetTeam):
         for id, team in enumerate(self.teams):
             if team == targetTeam:
                 return id
 
+    def initPerformance(self):
+        self.performance = {}
+        for team in self.teams:
+            self.performance[team] = 0
+
 
 def getTeams(event):
     collector = DataCollection.DataCollectionAnalysis(event, True)
     teams = np.array(collector.getAccTeamData()['team_key'])
     for index, team in enumerate(teams):
-        teams[index] = team[3:]
-    teams = np.sort(teams)
+        teams[index] = int(team[3:])
+    teams = np.sort(teams).tolist()
+    for index, team in enumerate(teams):
+        teams[index] = str(team)
+    teams = "#".join(teams)
     return teams
 
 
-def start(event, team):
+def start(event, team, year):
     # event = input("Please enter the official name of the event")
     # event = "FIM District Milford Event"
     # team = input("Please enter your team number.")
@@ -186,7 +213,8 @@ def start(event, team):
     # team = "67"
 
     # with open("savedModels/best_model/hyperparameters.txt", 'r') as reader:
-    path = "/home/g/r/greamy/djangoStuff/predictor/frcEventSolver/savedModels/best_model/"
+    # path = "/home/g/r/greamy/djangoStuff/predictor/frcEventSolver/savedModels/best_model/"
+    path = "savedModels/" + year + "/best_model/"
     with open(path + "hyperparameters.txt") as reader:
         parameters = reader.readline()
     buildStr = ""
@@ -206,14 +234,16 @@ def start(event, team):
                 buildStr = ""
         buildStr += element  #
 
-    collector = DataCollection.DataCollectionAnalysis(event, True)
-    creator = ModelCreator.ModelCreator(converted[3], converted[4], converted[5], converted[6], converted[7], converted[8], converted[9])
+    collector = DataCollection.DataCollectionAnalysis(event, True, year)
+    creator = ModelCreator.ModelCreator(converted[3], converted[4], converted[5], converted[6], converted[7], converted[8], converted[9],
+                                        (2, 15))
     model = creator.makeModelWandB()
     # model.load_weights("savedModels/best_model/cp.ckpt").expect_partial()
     model.load_weights(path + "cp.ckpt").expect_partial()
-    solver = EventSolve(model=model, dataCollector=collector, teamData=collector.getAccTeamData(), targetTeam=team)
+    solver = EventSolve(model=model, dataCollector=collector, teamData=collector.getAccTeamData()[0], targetTeam=team)
     return solver.search()
 
 
-# start()
+start("FIM District Milford Event", "67")
 # getTeams("FIM District Milford Event")
+

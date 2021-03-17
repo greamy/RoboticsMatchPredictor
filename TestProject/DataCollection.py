@@ -1,14 +1,16 @@
 import numpy as np
 import pandas as pd
 import requests
+from CustomException import APIException
 
 
-class DataCollectionAnalysis():
+class DataCollectionAnalysis:
     pd.options.display.max_rows = 10
     pd.options.display.float_format = '{:.1f}'.format
 
-    def __init__(self, event, scorePredict):
+    def __init__(self, event, scorePredict, year="2020"):
         self.scorePredict = scorePredict
+        self.year = year
         # Needed for API Security
         self.headers = {'X-TBA-Auth-Key': 'uGgrrwF5M7RwNn2JmRr9UHFWw9gkYPevgzzWhF8VLequIboEbd5zcUvmPc800uHB'}
         # Base TBA API Link, so I don't have to retype it over and over
@@ -17,6 +19,7 @@ class DataCollectionAnalysis():
         self.eventKey = self.getEventKey()
         self.eventRankings = self.getEventRankings()
         self.allData = self.getAllData()
+        # self.events = self.getYearEvents()
 
     # Function returns the 'key' for a team number. There is code to pull it from TheBlueAllianceAPI, but each key
     # is just the number with frc in front of it, simplifying like this vastly reduces time.
@@ -30,7 +33,7 @@ class DataCollectionAnalysis():
         #         break
         #
         #     # This Gets JSon file into a string.
-        #     json = requests.get(url=(self.link + "teams/2020/" + str(i)), headers=self.headers)
+        #     json = requests.get(url=(self.link + "teams/" + self.year + "/" + str(i)), headers=self.headers)
         #     if json.status_code != 200:
         #         # 200 is the Good return value. If We stop connecting to API correctly, stop looping.
         #         break
@@ -50,7 +53,7 @@ class DataCollectionAnalysis():
 
     # Function returns the key of a specific match within the event.
     def getMatchKey(self, teamKey, matchNumber):  # Every Match Has its own unique Key, this finds it for you
-        matchKeyJson = requests.get(url=(self.link + "team/" + str(teamKey) + "/matches/2020/keys"),
+        matchKeyJson = requests.get(url=(self.link + "team/" + str(teamKey) + "/matches/" + self.year + "/keys"),
                                     headers=self.headers)
         if matchKeyJson.status_code == 200:
             matchKeyData = pd.read_json(path_or_buf=matchKeyJson.text, typ="series", convert_dates=False)
@@ -67,7 +70,6 @@ class DataCollectionAnalysis():
         # It also puts the score breakdown Stats into its own DataFrame, stored within the outer one.
 
         matchJson = requests.get(url=(self.link + "team/" + str(teamKey) + "/event/" + str(eventKey) + "/matches"), headers=self.headers)
-        # print("Team stats request status code: " + str(matchJson.status_code))
         matchData = pd.read_json(path_or_buf=matchJson.text, typ="frame", convert_dates=False)
         numOfMatches = len(matchData.index)
         if numOfMatches == 0:
@@ -228,7 +230,6 @@ class DataCollectionAnalysis():
             eventRank = self.getTeamEventRank(teamKey=teamKey)
             seriesData = [autonScore, teleopScore, endgameScore, eventRank]
             finalSeries = pd.Series(data=seriesData, index=["autonScore", "teleopScore", "endgameScore", "eventRank"])
-            # print("Calculated Team Data for: " + str(teamKey))
             fullDataFrame[teamKey] = finalSeries
         return fullDataFrame.transpose()
 
@@ -236,55 +237,84 @@ class DataCollectionAnalysis():
         rankingsJson = requests.get(url=(self.link + "event/" + self.eventKey + "/rankings"), headers=self.headers)
         allData = rankingsJson.json()  # response object has .json() function, which puts the plaintext into actual
         # python objects (lists, dicts, etc)
+        sortOrders = pd.DataFrame(data=allData['sort_order_info'])
         allData = pd.DataFrame(data=allData['rankings'])
+        if allData.empty:
+            raise APIException(reason=("Rankings Data is null for " + self.eventName), method="getAccTeamData")
         filteredData = pd.DataFrame(data={'scores': allData['sort_orders'], 'team_key': allData['team_key']})
-        return filteredData
+        sortOrders = np.array(sortOrders['name'])
+        return [filteredData, sortOrders]
 
-    def calculateAccTeamData(self, teamsFromEvent):
-        filteredData = self.getAccTeamData()
+    def calculateAccTeamData(self):
+        data = self.getAccTeamData()
+        filteredData = data[0]
+        sortOrders = data[1]
+        numDataPoints = len(sortOrders)
+        sortOrders = np.append(sortOrders, "eventRank")
 
-        numOfTeams = len(teamsFromEvent.index)
+        numOfTeams = len(filteredData['team_key'])
         fullDataFrame = pd.DataFrame()
+        # lastData = [0 for x in range(6)]
+        # dataToCount = [True for y in range(6)]
+        # staleCount = [0 for z in range(6)]
+        # for count, value in enumerate(filteredData['team_key']):
+        #     tempData = filteredData['scores'][count]
+        #     for i in range(len(lastData)):
+        #         if lastData[i] == tempData[i] and lastData[i] == 0:
+        #             if staleCount[i] > 10 and dataToCount[i]:
+        #                 dataToCount[i] = False
+        #             else:
+        #                 staleCount[i] += 1
+        #     lastData = tempData
+        # for value in dataToCount:
+        #     if value:
+        #         numDataPoints += 1
+
         for q in range(0, numOfTeams):
-            teamKey = self.getTeamKey(teamsFromEvent.index[q])
+            teamKey = filteredData['team_key'][q]
             tempData = filteredData
             for count, value in enumerate(filteredData['team_key']):
                 if value == teamKey:
                     tempData = filteredData['scores'][count]
                     break
-            avgRankPoints = tempData[0]
-            autonScore = tempData[1]  # API returns an array like [ranking score, auto, end game, teleop]
-            teleopScore = tempData[3]  # for some reason endgame isn't at end of array, so that's why numbers are weird
-            endgameScore = tempData[2]
+            # avgRankPoints = tempData[0]
+            # autonScore = tempData[1]  # API returns an array like [ranking score, auto, end game, teleop]
+            # teleopScore = tempData[3]  # for some reason endgame isn't at end of array, so that's why numbers are weird
+            # endgameScore = tempData[2]
+            # eventRank = self.getTeamEventRank(teamKey=teamKey)
+            # seriesData = [autonScore, teleopScore, endgameScore, avgRankPoints, eventRank]
+            # finalSeries = pd.Series(data=seriesData, index=["autonScore", "teleopScore", "endgameScore",
+            #                                                 "avgRankPoints", "eventRank"])
+
+            seriesData = []
+            for i in range(numDataPoints):
+                seriesData.append(tempData[i])
             eventRank = self.getTeamEventRank(teamKey=teamKey)
-            seriesData = [autonScore, teleopScore, endgameScore, avgRankPoints, eventRank]
-            finalSeries = pd.Series(data=seriesData, index=["autonScore", "teleopScore", "endgameScore",
-                                                            "avgRankPoints", "eventRank"])
-            # print("Calculated Team Data for: " + str(teamKey))
+            seriesData.append(eventRank)
+
+            finalSeries = pd.Series(data=seriesData, index=sortOrders)
+
             fullDataFrame[teamKey] = finalSeries
 
-        # print(fullDataFrame)
         return fullDataFrame.transpose()
-
-    # def getDistrictKey(self, teamKey):
-    #     districtsJson = requests.get(url=(self.link + "team/" + teamKey + "/districts"), headers=self.headers)
-    #     districtsData = pd.read_json(path_or_buf=districtsJson.text, typ="frame", convert_dates=False)
-    #     print(districtsData)
-    #     return districtsData.iat[len(districtsData.index)-2, 2]
-    #     # The -2 is to get 2019 district of given team (-3 would be 2018, etc.)
-    #     # The , 2] is to get the district key, rather than name or some other info.
 
     # This returns a DataFrame (probably should be series) with each team at the index of the rank within the event.
     def getEventRankings(self):
-        # print(type(self.link + "event/" + self.eventKey + "/rankings"))
-        # print(type(self.headers))
-        rankingsJson = requests.get(url=(str(self.link) + "event/" + str(self.eventKey) + "/rankings"), headers=self.headers)
-        rankingsData = rankingsJson.json()  # response object has .json() function, which puts the plaintext into actual
+        rankingsReq = requests.get(url=(str(self.link) + "event/" + str(self.eventKey) + "/rankings"), headers=self.headers)
+        rankingsData = rankingsReq.json()  # response object has .json() function, which puts the plaintext into actual
         # python objects (lists, dicts, etc)
-        print(rankingsData)
-        rankingsData = pd.DataFrame(data=rankingsData['rankings'])
-        # formatting dataFrame for easy iteration
-        rankingsData = pd.DataFrame(data={'team_key': rankingsData['team_key']})
+        try:
+            rankingsData = pd.DataFrame(data=rankingsData['rankings'])
+            # formatting dataFrame for easy iteration
+            rankingsData = pd.DataFrame(data={'team_key': rankingsData['team_key']})
+        except KeyError:
+            raise APIException(reason=("Rankings Data is null for " + self.eventName), method="getEventRankings")
+        except TypeError:
+            print(rankingsData)
+            print(rankingsReq)
+            print(rankingsReq.status_code)
+            print(self.eventName)
+            raise
         return rankingsData
 
     # Returns the ranking of given team within the event, using output from above Function.
@@ -300,7 +330,7 @@ class DataCollectionAnalysis():
     def getEventKey(self):
         foundKey = False
         eventKey = ""
-        eventsJson = requests.get(url=(self.link + "events/" + "2020"), headers=self.headers)
+        eventsJson = requests.get(url=(self.link + "events/" + self.year), headers=self.headers)
         eventsData = pd.read_json(path_or_buf=eventsJson.text, typ="frame", convert_dates=False)
         numOfEvents = len(eventsData.index)
         for i in range(0, numOfEvents):
@@ -390,8 +420,7 @@ class DataCollectionAnalysis():
         allMatches = self.getEventMatches(self.eventKey)
         teamsFromEvent = self.getEventTeams()
         # teamData = self.calculateTeamData(teamsFromEvent=teamsFromEvent)
-        teamData = self.calculateAccTeamData(teamsFromEvent=teamsFromEvent)
-        # print(teamData)
+        teamData = self.calculateAccTeamData()
 
         numOfMatches = len(allMatches.index)
         eventMatches = pd.DataFrame(index=range(0, numOfMatches), columns=["Blue Alliance", "Red Alliance", "scores"])
@@ -432,23 +461,23 @@ class DataCollectionAnalysis():
             except IndexError:
                 print("Index out of bounds, skipping to end")
                 break
-            # except Exception as e:
-            #     print(e.__traceback__.print)
-            #     print("Something went wrong with match #" + str(i - matchesRemoved) + " in " + str(self.eventName))
-            #     print("Deleting match from data, and moving on.")
-            #     allMatches.drop(i, axis=0)
-            #     matchesRemoved += 1
+            except TypeError as e:
+                if "not iterable" in e.args.__str__():
+                    raise APIException(reason=(self.eventName + " has no match data."), method="eventMatchesFormattedForScorePredict")
+                else:
+                    print("Match #" + str(i) + " had a problem. skipping for now.")
+                    continue
         return eventMatches
 
     def numbersOnly(self, eventMatches):
         numOfMatches = len(eventMatches.index)
-        # Creates Array with 0's, with enough spaces to hold each score.
-        # shape=(12, 2, numMatches), 12 is because 4 stats x 3 teams (auton, teleop, endgame scores, and Event Rank),
-        # 2 because 2 alliances, and then each match is a separate entry
-        numberList = [[[0 for x in range(15)], [0 for x in range(15)]] for x in range(numOfMatches)]
+
+        xsize = len(eventMatches.at[0, "Blue Alliance"].index)  # num of data points (changes depending on year)
+        ysize = len(eventMatches.at[0, "Blue Alliance"].columns)  # num of teams on each alliance (always 3)
+
+        # xsize * 3 because each team has xsize data points
+        numberList = [[[0 for x in range(xsize*3)], [0 for x in range(xsize*3)]] for x in range(numOfMatches)]
         for i in range(numOfMatches):
-            xsize = len(eventMatches.at[i, "Blue Alliance"].index)
-            ysize = len(eventMatches.at[i, "Blue Alliance"].columns)
             count = 0
             for x in range(xsize):
                 for y in range(ysize):
@@ -471,7 +500,7 @@ class DataCollectionAnalysis():
 
     # checks for missing data, and clears that match from data and label array.
     @staticmethod
-    def cleanData(self, data, labels):
+    def cleanData(data, labels):
         countDeleted = 0
         for i in range(len(labels)):
             changeNum = (i-1)-countDeleted
@@ -508,5 +537,29 @@ class DataCollectionAnalysis():
             full = self.getDataAndLabels()
         else:
             full = self.getDataAndLabelsForScorePredict()
-        print(self.eventName + " EVENT RETRIEVED")
+        print(self.eventName + " EVENT RETRIEVED\n")
         return [full[0], full[1]]
+
+    @staticmethod
+    def getYearEvents(year):
+        eventsJson = requests.get(url=("https://www.thebluealliance.com/api/v3/events/" + year), headers={'X-TBA-Auth-Key': 'uGgrrwF5M7RwNn2JmRr9UHFWw9gkYPevgzzWhF8VLequIboEbd5zcUvmPc800uHB'})
+        allEvents = eventsJson.json()
+        allEvents = pd.DataFrame(data=allEvents)
+        # allEvents = allEvents.xs(('name', 'week'), axis=1)
+        eventNames = []
+        for eventName in allEvents['name']:
+            eventNames.append(eventName)
+        for column in allEvents[['name', 'week']]:
+            if column == 'name':
+                for eventName in allEvents[column]:
+                    if ("Cancelled" or "*") in eventName:
+                        eventNames.remove(eventName)
+            elif column == 'week':
+                numRemoved = 0
+                for index, week in enumerate(allEvents[column]):
+                    if np.isnan(week):
+                        # print("REMOVING " + str(index))
+                        eventNames.pop(index-numRemoved)
+                        numRemoved += 1
+
+        return eventNames
