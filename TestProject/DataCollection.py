@@ -254,21 +254,6 @@ class DataCollectionAnalysis:
 
         numOfTeams = len(filteredData['team_key'])
         fullDataFrame = pd.DataFrame()
-        # lastData = [0 for x in range(6)]
-        # dataToCount = [True for y in range(6)]
-        # staleCount = [0 for z in range(6)]
-        # for count, value in enumerate(filteredData['team_key']):
-        #     tempData = filteredData['scores'][count]
-        #     for i in range(len(lastData)):
-        #         if lastData[i] == tempData[i] and lastData[i] == 0:
-        #             if staleCount[i] > 10 and dataToCount[i]:
-        #                 dataToCount[i] = False
-        #             else:
-        #                 staleCount[i] += 1
-        #     lastData = tempData
-        # for value in dataToCount:
-        #     if value:
-        #         numDataPoints += 1
 
         for q in range(0, numOfTeams):
             teamKey = filteredData['team_key'][q]
@@ -277,14 +262,6 @@ class DataCollectionAnalysis:
                 if value == teamKey:
                     tempData = filteredData['scores'][count]
                     break
-            # avgRankPoints = tempData[0]
-            # autonScore = tempData[1]  # API returns an array like [ranking score, auto, end game, teleop]
-            # teleopScore = tempData[3]  # for some reason endgame isn't at end of array, so that's why numbers are weird
-            # endgameScore = tempData[2]
-            # eventRank = self.getTeamEventRank(teamKey=teamKey)
-            # seriesData = [autonScore, teleopScore, endgameScore, avgRankPoints, eventRank]
-            # finalSeries = pd.Series(data=seriesData, index=["autonScore", "teleopScore", "endgameScore",
-            #                                                 "avgRankPoints", "eventRank"])
 
             seriesData = []
             for i in range(numDataPoints):

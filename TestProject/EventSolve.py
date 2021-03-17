@@ -1,8 +1,8 @@
 import random
 # from . import DataCollection
 # from . import ModelCreator
-from TestProject import DataCollection
-from TestProject import ModelCreator
+from DataCollection import DataCollectionAnalysis
+from ModelCreator import ModelCreator
 import pandas as pd
 import numpy as np
 # import keyboard
@@ -10,18 +10,18 @@ import numpy as np
 
 class EventSolve:
 
-    def __init__(self, model, dataCollector, teamData, targetTeam):
+    def __init__(self, model, dataCollector, teamData, targetTeam, test):
         self.model = model
         self.collector = dataCollector
         self.teamData = teamData
-        self.teams = teamData['team_key']
+        self.teams = np.array(teamData.index)
         self.numTeams = len(self.teams)
-        self.teamData = self.formatTeamData(teamData)
+        # self.teamData = self.formatTeamData(teamData)
+        self.teamData = teamData
         self.targetTeam = "frc" + targetTeam
         self.targetTeamIndex = self.getTeamIndex(self.targetTeam)
         self.blue2Index = 0
         self.blue3Index = 0
-        # self.performance = [0 for x in range(self.numTeams)]
         self.initPerformance()
         self.scores = [[] for y in range(self.numTeams)]
         self.done = False
@@ -33,11 +33,9 @@ class EventSolve:
             red = self.genRedAlliance()
             blue = self.genBlueAlliance()
             alliances = self.combineAlliances(blue, red)
-            # print(alliances)
             allianceData = self.getAlliancesData(alliances)
             prediction = self.model(allianceData, training=False).numpy()
             prediction = np.reshape(prediction, newshape=2)
-            # print(prediction)
             self.updateScores(prediction[0])
             # try:
             #     if keyboard.is_pressed('q'):
@@ -100,29 +98,6 @@ class EventSolve:
         blue.append(red[2])
         return blue
 
-    #  This is called in __init__, just to reformat the data into a better format.
-    def formatTeamData(self, teamData):
-        # print(teamData)
-        # print(self.teams)
-        fullDataFrame = pd.DataFrame()
-        for team in self.teams:
-            tempData = teamData
-            for count, value in enumerate(teamData['team_key']):
-                if value == team:
-                    tempData = teamData['scores'][count]
-                    break
-            avgRankPoints = tempData[0]
-            autonScore = tempData[1]  # API returns an array like [ranking score, auto, end game, teleop]
-            teleopScore = tempData[3]  # for some reason endgame isn't at end of array, so that's why numbers are weird
-            endgameScore = tempData[2]
-            eventRank = self.collector.getTeamEventRank(teamKey=team)
-            seriesData = [autonScore, teleopScore, endgameScore, avgRankPoints, eventRank]
-            finalSeries = pd.Series(data=seriesData, index=["autonScore", "teleopScore", "endgameScore",
-                                                            "avgRankPoints", "eventRank"])
-            # print("Calculated Team Data for: " + str(teamKey))
-            fullDataFrame[team] = finalSeries
-        return fullDataFrame.transpose()
-
     #  This gets data for each time in a given set of alliances and puts into a single array, to be fed into the model.
     def getAlliancesData(self, alliances):
         blueAlliance = []
@@ -139,8 +114,8 @@ class EventSolve:
                 redAlliance.append(temp)
 
         allianceData = [blueAlliance, redAlliance]
-        alliancesData = np.array(allianceData)
-        allianceData = np.reshape(allianceData, newshape=(-1, 2, 15))
+        shape = np.shape(self.teamData)[1:][0]*3
+        allianceData = np.reshape(allianceData, newshape=(-1, 2, shape))
         return allianceData
 
     def updateScores(self, score):
@@ -194,7 +169,7 @@ class EventSolve:
 
 
 def getTeams(event):
-    collector = DataCollection.DataCollectionAnalysis(event, True)
+    collector = DataCollectionAnalysis(event, True)
     teams = np.array(collector.getAccTeamData()['team_key'])
     for index, team in enumerate(teams):
         teams[index] = int(team[3:])
@@ -206,13 +181,6 @@ def getTeams(event):
 
 
 def start(event, team, year="2020"):
-    # event = input("Please enter the official name of the event")
-    # event = "FIM District Milford Event"
-    # team = input("Please enter your team number.")
-    # team = "1076"
-    # team = "67"
-
-    # with open("savedModels/best_model/hyperparameters.txt", 'r') as reader:
     # path = "/home/g/r/greamy/djangoStuff/predictor/frcEventSolver/savedModels/best_model/"
     path = "savedModels/" + year + "/best_model/"
     with open(path + "hyperparameters.txt") as reader:
@@ -234,16 +202,18 @@ def start(event, team, year="2020"):
                 buildStr = ""
         buildStr += element  #
 
-    collector = DataCollection.DataCollectionAnalysis(event, True, year)
-    creator = ModelCreator.ModelCreator(converted[3], converted[4], converted[5], converted[6], converted[7], converted[8], converted[9],
-                                        (2, 15))
+    collector = DataCollectionAnalysis(event=event, scorePredict=True, year=year)
+    creator = ModelCreator(converted[3], converted[4], converted[5], converted[6], converted[7], converted[8], converted[9],
+                                        np.shape(collector.allData[0])[1:])  # this final parameter gets the shape of
+                                                                             # the input, which will change based on the
+                                                                             # year
     model = creator.makeModelWandB()
     # model.load_weights("savedModels/best_model/cp.ckpt").expect_partial()
     model.load_weights(path + "cp.ckpt").expect_partial()
-    solver = EventSolve(model=model, dataCollector=collector, teamData=collector.getAccTeamData()[0], targetTeam=team)
+    solver = EventSolve(model=model, dataCollector=collector, teamData=collector.calculateAccTeamData(), targetTeam=team, test=collector.calculateAccTeamData())
     return solver.search()
 
 
-start("FIM District Milford Event", "67")
+# start("FIM District Milford Event", "67", "2018")
 # getTeams("FIM District Milford Event")
 
