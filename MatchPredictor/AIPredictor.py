@@ -6,7 +6,11 @@ from matplotlib import gridspec
 from matplotlib import pyplot as plt
 import numpy as np
 from sklearn.model_selection import train_test_split
+<<<<<<< HEAD
 from TestProject.DataCollection import DataCollectionAnalysis
+=======
+from MatchPredictor.DataCollection import DataCollectionAnalysis
+>>>>>>> 2b56cc224955a8c96c3c27351854431193bec8aa
 
 # Returns labels and data in numpyArrays, and data has been cleaned of missing info.
 def getAllData(eventsToGet):

@@ -2,7 +2,7 @@ import tensorflow as tf
 
 
 class ModelCreator:
-    def __init__(self, numOfLayers, numOfNeurons, neuronDecay, constantNeurons, batchNorm, dropout, dropoutRate):
+    def __init__(self, numOfLayers, numOfNeurons, neuronDecay, constantNeurons, batchNorm, dropout, dropoutRate, inputShape):
         self.numOfLayers = int(numOfLayers)
         self.numOfNeurons = numOfNeurons
         self.neuronDecay = neuronDecay
@@ -10,12 +10,13 @@ class ModelCreator:
         self.batchNorm = batchNorm
         self.dropout = dropout
         self.dropoutRate = dropoutRate
+        self.inputShape = inputShape
 
     # This function is designed to be used with the program 'W and B, (weights and biases), and model to be changed
     # between runs.
     def makeModelWandB(self):
         model = tf.keras.Sequential()
-        model.add(tf.keras.Input(shape=(2, 15)))
+        model.add(tf.keras.Input(shape=self.inputShape))
         # model.add(tf.keras.layers.BatchNormalization())
 
         # model.add(tf.keras.layers.Dense(10, activation='relu'))
@@ -36,12 +37,12 @@ class ModelCreator:
             if self.numOfLayers - i == 2:
                 model.add(tf.keras.layers.Flatten())
         model.add(tf.keras.layers.Dense(2, activation='linear', name='output'))
-        # print(model.summary())
+        print(model.summary())
         return model
 
     # This is a static model, with each property hard-coded, but makes for better consistency.
     @staticmethod
-    def handMadeModel():
+    def handMadeModel(inputShape):
         # model = tf.keras.Sequential([
         #     tf.keras.layers.Flatten(),
         #     tf.keras.layers.Dense(16, activation='relu'),
@@ -49,7 +50,7 @@ class ModelCreator:
         #     tf.keras.layers.Dense(1, activation='sigmoid')
         # ])
         model = tf.keras.Sequential([
-            tf.keras.Input(shape=(2, 15)),
+            tf.keras.Input(shape=inputShape),
             tf.keras.layers.Dense(12, activation='relu'),
             tf.keras.layers.Flatten(),
             tf.keras.layers.Dense(8, activation='relu'),
